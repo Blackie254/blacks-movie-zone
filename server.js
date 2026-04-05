@@ -186,23 +186,18 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   const detailPath = d.detailPath || '';
   const embedUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
 
-  // Build direct stream list from trailerUrl (real CDN video file)
-  const streams = [];
+  // Build preview clip URL from trailerUrl (short CDN video — NOT the full movie)
+  let previewUrl = null;
   if (d.trailerUrl) {
     try {
       const host = new URL(d.trailerUrl).hostname;
       if (ALLOWED_CDN.includes(host)) {
-        // SD stream (always available)
-        streams.push({
-          url: `/proxy/video?url=${encodeURIComponent(d.trailerUrl)}`,
-          quality: 'SD',
-          raw: d.trailerUrl,
-        });
+        previewUrl = `/proxy/video?url=${encodeURIComponent(d.trailerUrl)}`;
       }
     } catch (_) {}
   }
 
-  // Build dub/audio track list
+  // Build dub/audio track list — each dub has its own embed URL
   const tracks = (d.dubs || []).map(dub => ({
     subjectId: dub.subjectId,
     label: dub.lanName,
@@ -216,7 +211,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     title: d.title,
     embedUrl,
     detailPath,
-    streams,
+    previewUrl,
     tracks,
     isShow: d.subjectType === 2,
   });
