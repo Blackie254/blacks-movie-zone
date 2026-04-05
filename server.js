@@ -220,14 +220,30 @@ app.get('/proxy/watch', wrap(async (req, res) => {
 
   const isShow = d.subjectType === 2;
 
-  // Look up IMDb ID → build vidsrc.to embed (allows iframing, full movie)
+  // Look up IMDb ID → build multiple embed server options
   const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
-  let vidsrcUrl = null;
+
+  let servers = [];
   if (imdbId) {
-    vidsrcUrl = isShow
-      ? `https://vidsrc.to/embed/tv/${imdbId}`
-      : `https://vidsrc.to/embed/movie/${imdbId}`;
+    if (isShow) {
+      servers = [
+        { label: 'Server 1', url: `https://player.videasy.net/tv/${imdbId}/1/1` },
+        { label: 'Server 2', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=1&episode=1` },
+        { label: 'Server 3', url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=1&episode=1` },
+        { label: 'Server 4', url: `https://2embed.cc/embedtv/${imdbId}` },
+      ];
+    } else {
+      servers = [
+        { label: 'Server 1', url: `https://autoembed.co/movie/imdb/${imdbId}` },
+        { label: 'Server 2', url: `https://player.videasy.net/movie/${imdbId}` },
+        { label: 'Server 3', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
+        { label: 'Server 4', url: `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` },
+      ];
+    }
   }
+
+  // Keep vidsrcUrl for backwards compatibility (first server or null)
+  const vidsrcUrl = servers.length ? servers[0].url : null;
 
   // aOneRoom embed as secondary fallback
   const detailPath = d.detailPath || '';
@@ -244,7 +260,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     } catch (_) {}
   }
 
-  // Language / dub track list (vidsrc doesn't support per-dub, aOneRoom does)
+  // Language / dub track list
   const tracks = (d.dubs || []).map(dub => ({
     subjectId: dub.subjectId,
     label: dub.lanName,
@@ -257,12 +273,19 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     success: true,
     title: d.title,
     imdbId,
+    servers,
     vidsrcUrl,
     aoneUrl,
     previewUrl,
     tracks,
     isShow,
     year: d.releaseDate ? d.releaseDate.split('-')[0] : null,
+    rating: d.imdbRatingValue || null,
+    genres: d.genre ? d.genre.split(',').map(g => g.trim()).filter(Boolean) : [],
+    posterUrl: d.cover?.url || null,
+    description: d.description || null,
+    country: d.countryName || null,
+    duration: d.duration || null,
   });
 }));
 

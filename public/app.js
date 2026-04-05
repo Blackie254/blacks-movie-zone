@@ -968,7 +968,10 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow)
 
   const { vidsrcUrl, aoneUrl, previewUrl, tracks } = watchData;
 
-  if (vidsrcUrl) {
+  const embedServers = watchData.servers && watchData.servers.length ? watchData.servers : (vidsrcUrl ? [{ label: 'Server 1', url: vidsrcUrl }] : []);
+
+  if (embedServers.length) {
+    const firstUrl = embedServers[0].url;
     embed.innerHTML = `
     <div style="position:relative;background:#000;line-height:0">
       <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0a0f;z-index:2">
@@ -976,7 +979,7 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow)
         <div style="color:var(--text3);font-size:13px">Loading player…</div>
       </div>
       <iframe id="vidsrcFrame"
-        src="${esc(vidsrcUrl)}"
+        src="${esc(firstUrl)}"
         allowfullscreen
         allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
         referrerpolicy="no-referrer-when-downgrade"
@@ -988,15 +991,9 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow)
     const iframe = document.getElementById('vidsrcFrame');
     const loading = document.getElementById('vsLoading');
     iframe.addEventListener('load', () => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; });
-    setTimeout(() => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; }, 8000);
+    setTimeout(() => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; }, 10000);
 
-    const servers = [
-      { label: 'Server 1', url: vidsrcUrl },
-      { label: 'Server 2', url: vidsrcUrl.replace('vidsrc.to', 'vidsrc.me') },
-    ];
-    if (isShow) servers.push({ label: 'Server 3', url: vidsrcUrl.replace('vidsrc.to', 'vidsrc.pm') });
-
-    const serverBtns = servers.map((s, i) =>
+    const serverBtns = embedServers.map((s, i) =>
       `<button class="watch-srv-btn${i===0?' active':''}" onclick="switchVidsrcServer('${esc(s.url)}',this)">${esc(s.label)}</button>`
     ).join('');
 
@@ -1113,14 +1110,15 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
   }
 
   const { vidsrcUrl, aoneUrl, previewUrl, tracks, imdbId, isShow } = watchData;
+  const embedServers = watchData.servers && watchData.servers.length ? watchData.servers : (vidsrcUrl ? [{ label: 'Server 1', url: vidsrcUrl }] : []);
 
-  if (!vidsrcUrl && !aoneUrl && !previewUrl) {
+  if (!embedServers.length && !aoneUrl && !previewUrl) {
     body.innerHTML = playerError('No stream found for this title.', 'https://www.aoneroom.com');
     return;
   }
 
-  // ── PRIMARY: vidsrc.to iframe — allows iframing, full-length movie ──
-  if (vidsrcUrl) {
+  if (embedServers.length) {
+    const firstUrl = embedServers[0].url;
     body.innerHTML = `
       <div style="position:relative;background:#000;line-height:0">
         <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0d1117;z-index:2">
@@ -1128,7 +1126,7 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
           <div style="color:var(--text3);font-size:13px">Loading player…</div>
         </div>
         <iframe id="vidsrcFrame"
-          src="${esc(vidsrcUrl)}"
+          src="${esc(firstUrl)}"
           allowfullscreen
           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
           referrerpolicy="no-referrer-when-downgrade"
@@ -1139,33 +1137,17 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
 
     const iframe = document.getElementById('vidsrcFrame');
     const loading = document.getElementById('vsLoading');
-    iframe.addEventListener('load', () => {
-      if (loading) loading.style.display = 'none';
-      iframe.style.opacity = '1';
-    });
-    // Safety timeout — hide loading after 8s regardless
-    setTimeout(() => {
-      if (loading) loading.style.display = 'none';
-      iframe.style.opacity = '1';
-    }, 8000);
+    iframe.addEventListener('load', () => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; });
+    setTimeout(() => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; }, 10000);
 
-    // Source switcher: vidsrc servers (they have multiple)
-    const servers = [
-      { label: 'Server 1', url: vidsrcUrl },
-      { label: 'Server 2', url: vidsrcUrl.replace('vidsrc.to', 'vidsrc.me') },
-    ];
-    if (isShow) servers.push({ label: 'Server 3', url: vidsrcUrl.replace('vidsrc.to', 'vidsrc.pm') });
-
-    const serverBtns = servers.map((s, i) =>
+    const serverBtns = embedServers.map((s, i) =>
       `<button class="stream-btn${i===0?' active':''}" onclick="switchVidsrcServer('${esc(s.url)}',this)">${esc(s.label)}</button>`
     ).join('');
 
-    // Language buttons — switch to aOneRoom for dubbed versions
     const dubBtns = tracks && tracks.length > 1
-      ? `<div class="player-section-label" style="margin-top:14px">Language / Dubs (via aOneRoom)</div>
+      ? `<div class="player-section-label" style="margin-top:14px">Language / Dubs</div>
          <div class="player-streams" style="flex-wrap:wrap">
-           ${tracks.map((t, i) => `<button class="stream-btn${t.original?' active':''}"
-             onclick="switchDubLink('${esc(t.aoneUrl||aoneUrl||'')}',this)">${esc(t.label)}</button>`).join('')}
+           ${tracks.map(t => `<button class="stream-btn${t.original?' active':''}" onclick="switchDubLink('${esc(t.aoneUrl||aoneUrl||'')}',this)">${esc(t.label)}</button>`).join('')}
          </div>`
       : '';
 
@@ -1176,7 +1158,6 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
       <div class="player-trailer-bar" style="margin-top:14px;flex-wrap:wrap;gap:8px">
         ${aoneUrl ? `<a class="stream-btn" href="${esc(aoneUrl)}" target="_blank" rel="noopener">↗ aOneRoom</a>` : ''}
         ${previewUrl ? `<button class="stream-btn" onclick="switchToPreview('${esc(previewUrl)}')">▶ Preview Clip</button>` : ''}
-        <span style="font-size:11px;color:var(--text3)">Powered by vidsrc.to</span>
       </div>`;
     return;
   }
