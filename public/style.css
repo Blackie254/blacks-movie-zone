@@ -520,6 +520,17 @@ footer { margin-top: 64px; padding: 40px 56px; background: var(--bg2); border-to
 .player-bar-label { font-size: 12px; color: var(--text3); }
 .active-btn { background: var(--blue) !important; color: #fff !important; border-color: var(--blue) !important; font-weight: 700; }
 
+/* Watch-full bar */
+.watch-full-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--card2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px 20px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.watch-full-left { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; }
+.watch-full-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.watch-full-sub { font-size: 12px; color: var(--text3); }
+.watch-full-btn { white-space: nowrap; padding: 12px 24px; font-size: 15px; text-decoration: none; }
+
 /* ===== LIVE TV ===== */
 .live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
 .live-card { background: var(--card); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
