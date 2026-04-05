@@ -245,19 +245,26 @@ const LIVE_CHANNELS = [
   { id: 'cbssports', name: 'CBS Sports HQ', category: 'sports', badge: '🎯', desc: 'CBS Sports 24/7 news & events', url: 'https://propee33f9c2.airspace-cdn.cbsivideo.com/index.m3u8' },
   { id: 'cbsgolazo', name: 'CBS Golazo', category: 'sports', badge: '⚽', desc: 'Soccer news & highlights', url: 'https://proped3fhg87.airspace-cdn.cbsivideo.com/golazo-live-dai/master/golazo-live.m3u8' },
   { id: 'ddsports', name: 'DD Sports India', category: 'sports', badge: '🏏', desc: 'Cricket, kabaddi & more', url: 'https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/b17adfe543354fdd8d189b110617cddd/index.m3u8' },
-  { id: 'ertsports1', name: 'ERT Sports 1', category: 'sports', badge: '🏊', desc: 'Greek public sports channel', url: 'http://hbbtvapp.ert.gr/stream.php/v/vid_ertsports_mpeg.2ts' },
   { id: 'africa24sport', name: 'Africa24 Sport', category: 'sports', badge: '🌍', desc: 'Pan-African sports coverage', url: 'https://africa24.vedge.infomaniak.com/livecast/ik:africa24sport/manifest.m3u8' },
   // ── NEWS ──
   { id: 'abcnews1', name: 'ABC News Live', category: 'news', badge: '📺', desc: 'Breaking news 24/7', url: 'https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master_400.m3u8' },
   { id: 'abcnews2', name: 'ABC News Live 2', category: 'news', badge: '📺', desc: 'ABC News second channel', url: 'https://abcnews-streams.akamaized.net/hls/live/2023561/abcnewshudson2/master_400.m3u8' },
   { id: 'cbcnews', name: 'CBC News', category: 'news', badge: '🍁', desc: 'Canada\'s public news network', url: 'https://nn.geo.cbc.ca/hls/cbc-1080.m3u8' },
+  { id: 'bloomberg', name: 'Bloomberg TV', category: 'news', badge: '📈', desc: 'Business & financial news', url: 'https://bloombergtv-free.akamaized.net/live/bloomberg-us/master.m3u8' },
+  // ── COMEDY ──
+  { id: 'comedy-central', name: 'Comedy Central', category: 'comedy', badge: '😂', desc: 'Stand-up & comedy shows', url: 'https://jmp2.uk/plu-81.m3u8' },
+  { id: 'standup247', name: 'Stand-Up 24/7', category: 'comedy', badge: '🎤', desc: 'Non-stop stand-up comedy', url: 'https://jmp2.uk/plu-82.m3u8' },
+  { id: 'comedy-movies', name: 'Comedy Movies', category: 'comedy', badge: '🎬', desc: 'Comedy films around the clock', url: 'https://jmp2.uk/plu-163.m3u8' },
+  { id: 'romcom', name: 'RomCom Channel', category: 'comedy', badge: '❤️', desc: 'Romantic comedies 24/7', url: 'https://jmp2.uk/plu-107.m3u8' },
+  { id: 'comedy-tv', name: 'Comedy.TV', category: 'comedy', badge: '📺', desc: 'Classic & modern comedy series', url: 'https://jmp2.uk/plu-178.m3u8' },
+  { id: 'funny-movies', name: 'Funny Movies', category: 'comedy', badge: '🤣', desc: 'Laugh-out-loud films all day', url: 'https://jmp2.uk/plu-165.m3u8' },
   // ── ENTERTAINMENT ──
   { id: 'pluto-classic', name: 'Classic Movies', category: 'entertainment', badge: '🎬', desc: 'Timeless classic films', url: 'https://jmp2.uk/plu-62.m3u8' },
   { id: 'pluto-action', name: 'Action Movies', category: 'entertainment', badge: '💥', desc: 'Non-stop action films', url: 'https://jmp2.uk/plu-63.m3u8' },
   { id: 'pluto-horror', name: 'Horror 24/7', category: 'entertainment', badge: '👻', desc: 'Horror movies round the clock', url: 'https://jmp2.uk/plu-106.m3u8' },
-  { id: 'pluto-comedy', name: 'Comedy Central', category: 'entertainment', badge: '😂', desc: 'Stand-up & comedy shows', url: 'https://jmp2.uk/plu-81.m3u8' },
   { id: 'pluto-scifi', name: 'Sci-Fi Movies', category: 'entertainment', badge: '🚀', desc: 'Science fiction films', url: 'https://jmp2.uk/plu-64.m3u8' },
   { id: 'pluto-crime', name: 'Crime Drama', category: 'entertainment', badge: '🔍', desc: 'Crime & thriller dramas', url: 'https://jmp2.uk/plu-195.m3u8' },
+  { id: 'pluto-kids', name: 'Kids TV', category: 'entertainment', badge: '🧒', desc: 'Family & kids programming', url: 'https://jmp2.uk/plu-100.m3u8' },
 ];
 
 app.get('/proxy/live-channels', (req, res) => {

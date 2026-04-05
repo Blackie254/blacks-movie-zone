@@ -579,6 +579,7 @@ async function renderLive() {
   <div class="live-tabs-bar">
     <button class="live-tab active" data-tab="wrestling" onclick="switchLiveTab('wrestling',this)">🤼 Wrestling &amp; Combat</button>
     <button class="live-tab" data-tab="sports" onclick="switchLiveTab('sports',this)">🏆 Sports</button>
+    <button class="live-tab" data-tab="comedy" onclick="switchLiveTab('comedy',this)">😂 Comedy</button>
     <button class="live-tab" data-tab="entertainment" onclick="switchLiveTab('entertainment',this)">🎬 Movies &amp; TV</button>
     <button class="live-tab" data-tab="news" onclick="switchLiveTab('news',this)">📰 News</button>
     <button class="live-tab" data-tab="all" onclick="switchLiveTab('all',this)">📡 All Channels</button>
@@ -642,7 +643,7 @@ function renderLiveGrid(tab) {
 }
 
 function liveCatLabel(cat) {
-  const map = { wrestling:'🤼 Wrestling', sports:'🏆 Sports', news:'📰 News', entertainment:'🎬 Entertainment', general:'📡 Live' };
+  const map = { wrestling:'🤼 Wrestling', sports:'🏆 Sports', news:'📰 News', entertainment:'🎬 Entertainment', comedy:'😂 Comedy', general:'📡 Live' };
   return map[cat] || '📡 Live';
 }
 
@@ -1145,7 +1146,7 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow)
       <iframe id="vidsrcFrame"
         src="${esc(firstUrl)}"
         allowfullscreen
-        allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+        allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock; screen-orientation"
         referrerpolicy="no-referrer-when-downgrade"
         scrolling="no"
         style="width:100%;aspect-ratio:16/9;border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
@@ -1292,7 +1293,7 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
         <iframe id="vidsrcFrame"
           src="${esc(firstUrl)}"
           allowfullscreen
-          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+          allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock; screen-orientation"
           referrerpolicy="no-referrer-when-downgrade"
           scrolling="no"
           style="width:100%;height:64vh;border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
@@ -1356,8 +1357,21 @@ window.switchVidsrcServer = function(url, btn) {
   const iframe = document.getElementById('vidsrcFrame');
   const loading = document.getElementById('vsLoading');
   if (!iframe) return;
-  if (loading) loading.style.display = 'flex';
+  if (loading) {
+    loading.style.display = 'flex';
+    loading.innerHTML = `<div class="spinner"></div><div style="color:var(--text3);font-size:13px">Switching server…</div>`;
+  }
   iframe.style.opacity = '0';
+
+  if (iframe._switchTimeout) clearTimeout(iframe._switchTimeout);
+  const onLoad = () => {
+    if (loading) loading.style.display = 'none';
+    iframe.style.opacity = '1';
+    iframe.removeEventListener('load', onLoad);
+    if (iframe._switchTimeout) clearTimeout(iframe._switchTimeout);
+  };
+  iframe.addEventListener('load', onLoad);
+  iframe._switchTimeout = setTimeout(onLoad, 15000);
   iframe.src = url;
 };
 
@@ -1410,9 +1424,18 @@ const fsIconCompress = `<svg width="16" height="16" viewBox="0 0 24 24" fill="no
 fsBtn.addEventListener('click', () => {
   const container = document.getElementById('playerContainer');
   if (!document.fullscreenElement) {
-    (container.requestFullscreen || container.webkitRequestFullscreen || container.mozRequestFullScreen).call(container);
+    const req = container.requestFullscreen || container.webkitRequestFullscreen || container.mozRequestFullScreen;
+    if (req) {
+      req.call(container).then(() => {
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      }).catch(() => {});
+    }
   } else {
-    (document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen).call(document);
+    if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen;
+    if (exit) exit.call(document);
   }
 });
 
@@ -1423,6 +1446,9 @@ document.addEventListener('mozfullscreenchange', updateFsIcon);
 function updateFsIcon() {
   fsBtn.innerHTML = document.fullscreenElement ? fsIconCompress : fsIconExpand;
   fsBtn.setAttribute('aria-label', document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen');
+  if (!document.fullscreenElement) {
+    if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+  }
 }
 
 // Double-click video to toggle fullscreen
