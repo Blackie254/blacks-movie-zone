@@ -835,11 +835,34 @@ async function fetchSearch(reset) {
   if (lmw) lmw.style.display = items.length >= 24 ? 'flex' : 'none';
 }
 
-// ===== DETAIL =====
+// ===== DETAIL (onstream-style watch page) =====
 async function renderDetail(id) {
   prefetchStream(id);
 
-  setApp(`<div class="spinner-wrap" style="min-height:80vh"><div class="spinner"></div></div>`);
+  setApp(`
+  <div class="watch-page">
+    <div class="watch-player-section">
+      <div class="watch-player-wrap">
+        <div class="watch-player-embed" id="watchPlayerEmbed">
+          <div class="watch-player-loading">
+            <div class="spinner"></div>
+            <p class="watch-loading-text">Loading player…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="watch-controls-bar" id="watchControls">
+      <div class="watch-ctrl-group"><span class="watch-ctrl-label">Loading servers…</span></div>
+    </div>
+    <div class="watch-info-row" id="watchInfoRow">
+      <div class="watch-info-skeleton">
+        <div class="skeleton" style="width:55%;height:30px;border-radius:6px;margin-bottom:14px"></div>
+        <div class="skeleton" style="width:38%;height:13px;border-radius:4px;margin-bottom:10px"></div>
+        <div class="skeleton" style="width:90%;height:12px;border-radius:4px;margin-bottom:7px"></div>
+        <div class="skeleton" style="width:75%;height:12px;border-radius:4px"></div>
+      </div>
+    </div>
+  </div>`);
 
   const [detail, rec] = await Promise.all([
     api('rich-detail', { subjectId: id }),
@@ -853,7 +876,6 @@ async function renderDetail(id) {
 
   const d = detail.data;
   const isShow = d.subjectType === 2;
-  const bgUrl = d.stills?.url || d.cover?.url || '';
   const genres = (d.genre || '').split(',').map(g => g.trim()).filter(Boolean);
   const rating = d.imdbRatingValue;
   const year = d.releaseDate?.slice(0, 4) || '';
@@ -862,57 +884,45 @@ async function renderDetail(id) {
   const seasons = d.seasonList || d.seasons || [];
   const cast = d.staffList || [];
 
-  const streamReady = streamCache.has(id);
-
-  setApp(`
-  <div class="detail-hero">
-    <div class="detail-hero-bg" style="background-image:url('${bgUrl}')"></div>
-    <div class="detail-hero-grad"></div>
-    <div class="detail-content">
-      <div class="detail-poster">
+  const infoRow = document.getElementById('watchInfoRow');
+  if (infoRow) {
+    infoRow.innerHTML = `
+    <div class="watch-info fade-in">
+      <div class="watch-info-left">
+        <div class="watch-title-row">
+          <h1 class="watch-title">${esc(d.title)}</h1>
+        </div>
+        <div class="watch-meta-row">
+          ${rating ? `<span class="watch-rating">
+            <svg width="13" height="13" fill="#fbbf24" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            ${rating} IMDb</span>` : ''}
+          ${year ? `<span class="watch-meta-pill">${year}</span>` : ''}
+          ${dur ? `<span class="watch-meta-pill">${dur}</span>` : ''}
+          ${d.countryName ? `<span class="watch-meta-pill">${esc(d.countryName)}</span>` : ''}
+          <span class="watch-meta-pill ${isShow ? 'pill-show' : 'pill-movie'}">${isShow ? 'TV Show' : 'Movie'}</span>
+        </div>
+        ${genres.length ? `<div class="watch-genres">${genres.map(g => `<span class="watch-genre" onclick="navigate('/browse');setBrowseGenre('${g}',event.target)">${g}</span>`).join('')}</div>` : ''}
+        ${d.description ? `<p class="watch-desc">${esc(d.description)}</p>` : ''}
+      </div>
+      <div class="watch-info-poster">
         ${d.cover?.url
           ? `<img src="${d.cover.url}" alt="${esc(d.title)}" onerror="this.style.display='none'" />`
-          : `<div style="aspect-ratio:2/3;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:52px">🎬</div>`}
+          : `<div class="watch-poster-placeholder">🎬</div>`}
       </div>
-      <div class="detail-info">
-        <h1 class="detail-title">${esc(d.title)}</h1>
-        <div class="detail-badges">
-          <span class="detail-badge db-type">${isShow ? 'TV Show' : 'Movie'}</span>
-          ${year ? `<span class="detail-badge db-year">📅 ${year}</span>` : ''}
-          ${rating ? `<span class="detail-badge db-rating">★ ${rating} IMDb</span>` : ''}
-          ${d.countryName ? `<span class="detail-badge db-country">🌍 ${esc(d.countryName)}</span>` : ''}
-          ${dur ? `<span class="detail-badge db-year">⏱ ${dur}</span>` : ''}
-        </div>
-        ${genres.length ? `<div class="detail-genres">${genres.map(g => `<span class="detail-genre" onclick="navigate('/browse');setBrowseGenre('${g}',event.target)">${g}</span>`).join('')}</div>` : ''}
-        <p class="detail-desc">${esc(d.description || 'No description available.')}</p>
-        <div class="detail-actions">
-          <button class="btn-play" id="mainPlayBtn" onclick="openPlayer('${id}','${esc(d.title)}',${isShow})">
-            <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            Play Now
-            ${streamReady ? '<span class="play-ready-dot"></span>' : ''}
-          </button>
-          <button class="btn-info" onclick="toast('Added to watchlist! ✓','success')">＋ Watchlist</button>
-        </div>
-      </div>
-    </div>
-  </div>
+    </div>`;
+  }
 
-  <div class="detail-body">
-    ${cast.length ? `
-    <div class="detail-cast">
-      <div class="section-header"><h3 class="section-title">Cast &amp; Crew</h3></div>
-      <div class="cast-row">
-        ${cast.map(p => `
-        <div class="cast-card" onclick="navigate('/staff/${p.staffId}')" style="cursor:pointer">
-          <img class="cast-avatar" src="${p.avatar?.url || p.avatarUrl || ''}" alt="${esc(p.name)}" onerror="this.style.opacity='0'" loading="lazy" />
-          <div class="cast-name">${esc(p.name)}</div>
-          <div class="cast-role">${esc(p.role || p.character || '')}</div>
-        </div>`).join('')}
-      </div>
-    </div>` : ''}
+  const watchData = await streamCache.get(id);
+  const embed = document.getElementById('watchPlayerEmbed');
+  const controls = document.getElementById('watchControls');
+  if (embed && controls) renderWatchPlayer(embed, controls, id, d.title, watchData, isShow);
 
-    ${isShow && seasons.length ? `
-    <div class="detail-seasons">
+  const page = document.querySelector('.watch-page');
+  if (!page) return;
+
+  if (isShow && seasons.length) {
+    page.insertAdjacentHTML('beforeend', `
+    <div class="watch-section">
       <div class="section-header"><h3 class="section-title">Episodes</h3></div>
       <div class="seasons-tabs">
         ${seasons.map((s, i) => `<button class="season-tab${i===0?' active':''}" onclick="loadSeason('${id}','${s.seasonId||s.id||id}',this)">Season ${s.index||i+1}</button>`).join('')}
@@ -920,31 +930,126 @@ async function renderDetail(id) {
       <div id="episodesGrid" class="episodes-grid">
         <div class="spinner-wrap" style="min-height:140px"><div class="spinner"></div></div>
       </div>
-    </div>` : ''}
-
-    ${!isShow ? `
-    <div style="margin-bottom:40px">
-      <div class="section-header"><h3 class="section-title">▶ Watch</h3></div>
-      <button class="btn-play" onclick="openPlayer('${id}','${esc(d.title)}',false)" style="margin-bottom:0">
-        <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        Play Movie
-      </button>
-    </div>` : ''}
-
-    ${recItems.length ? `
-    <div>
-      <div class="section-header">
-        <h3 class="section-title">You Might Also Like</h3>
-      </div>
-      ${makeRow('recRow', recItems.map(makeCard).join(''))}
-    </div>` : ''}
-  </div>
-  ${renderFooter()}`);
-
-  if (isShow && seasons.length) {
+    </div>`);
     loadSeasonEpisodes(id, seasons[0].seasonId || seasons[0].id || id);
   }
+
+  if (cast.length) {
+    page.insertAdjacentHTML('beforeend', `
+    <div class="watch-section">
+      <div class="section-header"><h3 class="section-title">Cast &amp; Crew</h3></div>
+      <div class="cast-row">${cast.map(p => `
+        <div class="cast-card" onclick="navigate('/staff/${p.staffId}')" style="cursor:pointer">
+          <img class="cast-avatar" src="${p.avatar?.url || p.avatarUrl || ''}" alt="${esc(p.name)}" onerror="this.style.opacity='0'" loading="lazy" />
+          <div class="cast-name">${esc(p.name)}</div>
+          <div class="cast-role">${esc(p.role || p.character || '')}</div>
+        </div>`).join('')}
+      </div>
+    </div>`);
+  }
+
+  if (recItems.length) {
+    page.insertAdjacentHTML('beforeend', `
+    <div class="watch-section">
+      <div class="section-header"><h3 class="section-title">You Might Also Like</h3></div>
+      ${makeRow('recRow', recItems.map(makeCard).join(''))}
+    </div>`);
+  }
+
+  page.insertAdjacentHTML('beforeend', renderFooter());
 }
+
+function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow) {
+  if (!watchData?.success) {
+    embed.innerHTML = `<div class="watch-player-error"><div class="wpe-icon">🎬</div><p>Stream unavailable</p></div>`;
+    controls.innerHTML = '';
+    return;
+  }
+
+  const { vidsrcUrl, aoneUrl, previewUrl, tracks } = watchData;
+
+  if (vidsrcUrl) {
+    embed.innerHTML = `
+    <div style="position:relative;background:#000;line-height:0">
+      <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0a0f;z-index:2">
+        <div class="spinner"></div>
+        <div style="color:var(--text3);font-size:13px">Loading player…</div>
+      </div>
+      <iframe id="vidsrcFrame"
+        src="${esc(vidsrcUrl)}"
+        allowfullscreen
+        allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+        referrerpolicy="no-referrer-when-downgrade"
+        scrolling="no"
+        style="width:100%;aspect-ratio:16/9;border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
+      </iframe>
+    </div>`;
+
+    const iframe = document.getElementById('vidsrcFrame');
+    const loading = document.getElementById('vsLoading');
+    iframe.addEventListener('load', () => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; });
+    setTimeout(() => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; }, 8000);
+
+    const servers = [
+      { label: 'Server 1', url: vidsrcUrl },
+      { label: 'Server 2', url: vidsrcUrl.replace('vidsrc.to', 'vidsrc.me') },
+    ];
+    if (isShow) servers.push({ label: 'Server 3', url: vidsrcUrl.replace('vidsrc.to', 'vidsrc.pm') });
+
+    const serverBtns = servers.map((s, i) =>
+      `<button class="watch-srv-btn${i===0?' active':''}" onclick="switchVidsrcServer('${esc(s.url)}',this)">${esc(s.label)}</button>`
+    ).join('');
+
+    const dubBtns = tracks && tracks.length > 1
+      ? `<div class="watch-ctrl-divider"></div>
+         <div class="watch-ctrl-group">
+           <span class="watch-ctrl-label">Language</span>
+           ${tracks.map(t => `<button class="watch-srv-btn${t.original?' active':''}" onclick="switchDubLink('${esc(t.aoneUrl||aoneUrl||'')}',this)">${esc(t.label)}</button>`).join('')}
+         </div>`
+      : '';
+
+    controls.innerHTML = `
+      <div class="watch-ctrl-group">
+        <span class="watch-ctrl-label">Server</span>
+        ${serverBtns}
+      </div>
+      ${dubBtns}
+      <div class="watch-ctrl-end">
+        ${aoneUrl ? `<a class="watch-srv-btn" href="${esc(aoneUrl)}" target="_blank" rel="noopener">↗ aOneRoom</a>` : ''}
+        ${previewUrl ? `<button class="watch-srv-btn" onclick="switchWatchToPreview('${esc(previewUrl)}')">▶ Trailer</button>` : ''}
+      </div>`;
+    return;
+  }
+
+  if (previewUrl) {
+    embed.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+      style="width:100%;aspect-ratio:16/9;display:block;background:#000">
+      <source src="${esc(previewUrl)}" type="video/mp4" />
+    </video>`;
+  } else {
+    embed.innerHTML = `<div class="watch-player-error">
+      <div class="wpe-icon">🎬</div>
+      <p>No stream found</p>
+      ${aoneUrl ? `<a class="btn-play" href="${esc(aoneUrl)}" target="_blank" rel="noopener" style="display:inline-flex;margin-top:16px">
+        <svg width="16" height="16" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>Watch on aOneRoom</a>` : ''}
+    </div>`;
+  }
+
+  controls.innerHTML = aoneUrl ? `
+    <div class="watch-ctrl-group">
+      <span class="watch-ctrl-label">Watch full ${isShow?'show':'movie'} on</span>
+      <a class="watch-srv-btn active" href="${esc(aoneUrl)}" target="_blank" rel="noopener">↗ aOneRoom</a>
+    </div>` : '';
+}
+
+window.switchWatchToPreview = function(url) {
+  const embed = document.getElementById('watchPlayerEmbed');
+  if (!embed) return;
+  embed.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+    style="width:100%;aspect-ratio:16/9;display:block;background:#000">
+    <source src="${esc(url)}" type="video/mp4" />
+  </video>`;
+};
 
 window.loadSeason = function(subjectId, seasonId, btn) {
   document.querySelectorAll('.season-tab').forEach(b => b.classList.remove('active'));
@@ -1100,12 +1205,14 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
 }
 
 window.switchVidsrcServer = function(url, btn) {
-  document.querySelectorAll('.player-streams .stream-btn').forEach(b => b.classList.remove('active'));
+  btn.closest('.watch-ctrl-group, .player-streams')
+    ?.querySelectorAll('.watch-srv-btn, .stream-btn')
+    .forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const iframe = document.getElementById('vidsrcFrame');
   const loading = document.getElementById('vsLoading');
   if (!iframe) return;
-  if (loading) { loading.style.display = 'flex'; }
+  if (loading) loading.style.display = 'flex';
   iframe.style.opacity = '0';
   iframe.src = url;
 };
