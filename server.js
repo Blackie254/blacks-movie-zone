@@ -246,8 +246,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     if (isShow) {
       servers = [
         { label: 'Server 1', url: `https://player.videasy.net/tv/${imdbId}/1/1` },
-        { label: 'MovieBox', url: `https://moviesapi.club/tv/${imdbId}-1-1` },
-        { label: 'HydraHD', url: `https://hydrahd.cc/embed/tv/${imdbId}-1-1` },
+        { label: 'Blizzflix', url: `https://moviesapi.club/tv/${imdbId}-1-1` },
         { label: 'Server 2', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=1&episode=1` },
         { label: 'Server 3', url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=1&episode=1` },
         { label: 'Server 4', url: `https://2embed.cc/embedtv/${imdbId}` },
@@ -255,8 +254,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     } else {
       servers = [
         { label: 'Server 1', url: `https://autoembed.co/movie/imdb/${imdbId}` },
-        { label: 'MovieBox', url: `https://moviesapi.club/movie/${imdbId}` },
-        { label: 'HydraHD', url: `https://hydrahd.cc/embed/movie/${imdbId}` },
+        { label: 'Blizzflix', url: `https://moviesapi.club/movie/${imdbId}` },
         { label: 'Server 2', url: `https://player.videasy.net/movie/${imdbId}` },
         { label: 'Server 3', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
         { label: 'Server 4', url: `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` },
