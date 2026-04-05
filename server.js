@@ -51,6 +51,23 @@ function wrap(fn) {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ===== SEO ESSENTIALS =====
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send(`User-agent: *\nAllow: /\nDisallow: /proxy/\n\nSitemap: ${req.protocol}://${req.get('host')}/sitemap.xml\n`);
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const base = `${req.protocol}://${req.get('host')}`;
+  const pages = ['/', '/movies', '/shows', '/trending', '/browse', '/live', '/new'];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${pages.map(p => `  <url><loc>${base}${p}</loc><changefreq>daily</changefreq><priority>${p === '/' ? '1.0' : '0.8'}</priority></url>`).join('\n')}
+</urlset>`;
+  res.type('application/xml');
+  res.send(xml);
+});
+
 // ===== CORE ENDPOINTS =====
 app.get('/proxy/trending', wrap(async (req, res) => {
   const { page = 0, perPage = 18 } = req.query;

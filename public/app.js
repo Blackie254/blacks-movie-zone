@@ -1,6 +1,43 @@
 /* ===== BlueBlizzard FreeFlix — Smooth SPA ===== */
 
 const API = '/proxy';
+
+// ===== SEO HELPERS =====
+const SEO_SITE = 'BlueBlizzard FreeFlix';
+const SEO_DEFAULT_DESC = 'Watch free movies, TV shows, live sports, wrestling, news and comedy channels on BlueBlizzard FreeFlix. No sign-up required. Stream in HD instantly.';
+
+function updateSEO({ title, description, url, image } = {}) {
+  const fullTitle = title ? `${title} — ${SEO_SITE}` : `${SEO_SITE} — Free Movies, TV Shows & Live TV`;
+  const desc = description ? description.slice(0, 160) : SEO_DEFAULT_DESC;
+  const canonUrl = url || (location.origin + location.pathname + location.search);
+
+  document.title = fullTitle;
+  _setMetaName('description', desc);
+  _setMetaId('ogTitle', fullTitle);
+  _setMetaId('ogDesc', desc);
+  _setMetaId('ogUrl', canonUrl);
+  _setMetaId('twTitle', fullTitle);
+  _setMetaId('twDesc', desc);
+  const canonical = document.getElementById('canonicalTag');
+  if (canonical) canonical.setAttribute('href', canonUrl);
+  if (image) {
+    _setMetaProp('og:image', image);
+    _setMetaId('twImage', image);
+  }
+}
+
+function _setMetaName(name, content) {
+  const el = document.querySelector(`meta[name="${name}"]`);
+  if (el) el.setAttribute('content', content);
+}
+function _setMetaProp(prop, content) {
+  const el = document.querySelector(`meta[property="${prop}"]`);
+  if (el) el.setAttribute('content', content);
+}
+function _setMetaId(id, content) {
+  const el = document.getElementById(id);
+  if (el) el.setAttribute('content', content);
+}
 let currentPath = '';
 let heroSlideIndex = 0;
 let heroItems = [];
@@ -399,6 +436,7 @@ window.setHeroSlide = function(i) {
 let homeGenre = '';
 
 async function renderHome() {
+  updateSEO({});
   setApp(`<div style="margin-top:64px">${heroHtml(6)}</div>
 
   <div class="home-genre-bar">
@@ -496,6 +534,7 @@ window.loadRankTab = async function(id, btn) {
 
 // ===== TRENDING =====
 async function renderTrending() {
+  updateSEO({ title: 'Trending Now', description: 'Discover what everyone is watching right now. The hottest trending movies and TV shows streaming free on BlueBlizzard FreeFlix.' });
   setApp(`
   <div class="page-header fade-up">
     <h1 class="page-title">🔥 Trending Now</h1>
@@ -515,6 +554,7 @@ async function renderTrending() {
 let ntPage = 1;
 
 async function renderNewArrivals() {
+  updateSEO({ title: 'New Arrivals', description: 'Fresh movies and TV shows added recently to BlueBlizzard FreeFlix. Be the first to stream the latest content, free with no sign-up.' });
   ntPage = 1;
   setApp(`
   <div class="page-header fade-up">
@@ -565,6 +605,7 @@ let liveTab = 'all';
 let allLiveChannels = [];
 
 async function renderLive() {
+  updateSEO({ title: 'Live TV — Sports, Wrestling, Comedy & News', description: 'Watch free live TV channels including wrestling, sports, comedy, news and entertainment. Stream live 24/7 on BlueBlizzard FreeFlix with no sign-up.' });
   liveTab = 'wrestling';
   setApp(`
   <div class="live-hero">
@@ -705,6 +746,7 @@ window.openLiveChannel = function(streamUrl, title, badge) {
 const SHOW_GENRES = ['Drama','Action','Comedy','Thriller','Crime','Fantasy','Sci-Fi','Animation','Mystery','Romance','Horror','Documentary'];
 
 async function renderShows() {
+  updateSEO({ title: 'TV Shows & Series', description: 'Stream free TV shows and series online. Drama, comedy, action, crime, sci-fi and more — all free on BlueBlizzard FreeFlix with no sign-up required.' });
   setApp(`<div style="margin-top:64px">${heroHtml(6)}</div>
 
   <div class="home-genre-bar">
@@ -834,6 +876,13 @@ async function renderBrowse(forceType = null) {
   bs.page = 1;
 
   const title = bs.type === 1 ? '🎬 Movies' : bs.type === 2 ? '📺 TV Shows' : '🎞 Browse All';
+  const seoTitle = bs.type === 1 ? 'Free Movies Online' : bs.type === 2 ? 'Free TV Shows Online' : 'Browse Movies & TV Shows';
+  const seoDesc = bs.type === 1
+    ? 'Browse and stream free movies online by genre and country. Action, drama, comedy, horror, sci-fi and more — free on BlueBlizzard FreeFlix.'
+    : bs.type === 2
+      ? 'Browse and stream free TV shows and series by genre and country. Find your next binge-worthy series on BlueBlizzard FreeFlix.'
+      : 'Browse the full library of free movies and TV shows on BlueBlizzard FreeFlix. Filter by genre, country and type.';
+  updateSEO({ title: seoTitle, description: seoDesc });
 
   setApp(`
   <div class="page-header fade-up">
@@ -941,6 +990,7 @@ async function fetchBrowse(reset) {
 let sq = '', sp = 1, stype = '';
 
 async function renderSearch(q) {
+  updateSEO({ title: `Search: "${q}"`, description: `Stream free movies and TV shows matching "${q}" on BlueBlizzard FreeFlix. No sign-up required.` });
   sq = q; sp = 1; stype = '';
   setApp(`
   <div class="page-header fade-up">
@@ -1041,6 +1091,12 @@ async function renderDetail(id) {
   }
 
   const d = detail.data;
+  const typeLabel = d.subjectType === 2 ? 'TV Show' : 'Movie';
+  const yearStr = d.releaseDate ? d.releaseDate.slice(0, 4) : '';
+  const seoDesc = d.description
+    ? d.description.slice(0, 140)
+    : `Watch ${d.title}${yearStr ? ' (' + yearStr + ')' : ''} free online on BlueBlizzard FreeFlix. Stream ${typeLabel.toLowerCase()} in HD with no sign-up required.`;
+  updateSEO({ title: `Watch ${d.title}${yearStr ? ' (' + yearStr + ')' : ''}`, description: seoDesc, image: d.cover?.url || undefined });
   const isShow = d.subjectType === 2;
   const genres = (d.genre || '').split(',').map(g => g.trim()).filter(Boolean);
   const rating = d.imdbRatingValue;

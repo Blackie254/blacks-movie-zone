@@ -3,47 +3,123 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BlueBlizzards FreeFlix</title>
-  <link rel="stylesheet" href="/style.css" />
+
+  <!-- Primary SEO -->
+  <title>BlueBlizzard FreeFlix — Free Movies, TV Shows &amp; Live TV Streaming</title>
+  <meta name="description" content="Watch free movies, TV shows, live sports, wrestling, news and comedy channels on BlueBlizzard FreeFlix. No sign-up required. Stream in HD instantly." />
+  <meta name="keywords" content="free movies online, watch TV shows free, live TV streaming, wrestling live, free streaming, watch movies no signup, BlueBlizzard FreeFlix, free film streaming, comedy channels live" />
+  <meta name="author" content="BlueBlizzard FreeFlix" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="/" id="canonicalTag" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="BlueBlizzard FreeFlix" />
+  <meta property="og:url" content="/" id="ogUrl" />
+  <meta property="og:title" content="BlueBlizzard FreeFlix — Free Movies, TV Shows &amp; Live TV" id="ogTitle" />
+  <meta property="og:description" content="Watch free movies, TV shows, live sports, wrestling, news and comedy channels. No sign-up required. Stream in HD instantly." id="ogDesc" />
+  <meta property="og:image" content="/og-image.svg" />
+  <meta property="og:image:alt" content="BlueBlizzard FreeFlix — free streaming platform" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@BlueBlizzardFlix" />
+  <meta name="twitter:title" content="BlueBlizzard FreeFlix — Free Movies, TV Shows &amp; Live TV" id="twTitle" />
+  <meta name="twitter:description" content="Watch free movies, TV shows, live sports, wrestling, news and comedy channels. No sign-up required." id="twDesc" />
+  <meta name="twitter:image" content="/og-image.svg" id="twImage" />
+
+  <!-- PWA / Theme -->
+  <meta name="theme-color" content="#080c14" />
+  <meta name="application-name" content="BlueBlizzard FreeFlix" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlueBlizzard" />
+
+  <!-- Favicon (emoji SVG) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❄</text></svg>" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❄</text></svg>" />
+
+  <!-- JSON-LD: WebSite with SearchAction -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "BlueBlizzard FreeFlix",
+    "alternateName": "BlueBlizzard",
+    "url": "/",
+    "description": "Watch free movies, TV shows, live sports, wrestling, news and comedy channels on BlueBlizzard FreeFlix. No sign-up required.",
+    "inLanguage": "en-US",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "/search?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+
+  <!-- JSON-LD: Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "BlueBlizzard FreeFlix",
+    "url": "/",
+    "logo": "/og-image.svg",
+    "description": "Free streaming platform for movies, TV shows and live TV channels."
+  }
+  </script>
+
+  <!-- Preconnect to external resources -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="dns-prefetch" href="https://movieapi.xcasper.space" />
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
 
   <!-- NAVBAR -->
-  <nav class="navbar" id="navbar">
+  <nav class="navbar" id="navbar" role="navigation" aria-label="Main navigation">
     <div class="nav-left">
-      <a href="/" class="logo" onclick="navigate('/');return false;">
-        <span class="logo-ice">❄</span>
+      <a href="/" class="logo" onclick="navigate('/');return false;" aria-label="BlueBlizzard FreeFlix — Home">
+        <span class="logo-ice" aria-hidden="true">❄</span>
         <span class="logo-text">Blue<span class="logo-accent">Blizzard</span></span>
         <span class="logo-sub">FreeFlix</span>
       </a>
-      <div class="nav-links">
-        <a href="/" class="nav-link" data-page="home" onclick="navigate('/');return false;">Home</a>
-        <a href="/movies" class="nav-link" data-page="movies" onclick="navigate('/movies');return false;">Movies</a>
-        <a href="/shows" class="nav-link" data-page="shows" onclick="navigate('/shows');return false;">TV Shows</a>
-        <a href="/trending" class="nav-link" data-page="trending" onclick="navigate('/trending');return false;">Trending</a>
-        <a href="/browse" class="nav-link" data-page="browse" onclick="navigate('/browse');return false;">Browse</a>
-        <a href="/live" class="nav-link" data-page="live" onclick="navigate('/live');return false;">📡 Live</a>
-        <a href="/new" class="nav-link" data-page="new" onclick="navigate('/new');return false;">🆕 New</a>
+      <div class="nav-links" role="menubar">
+        <a href="/" class="nav-link" data-page="home" onclick="navigate('/');return false;" role="menuitem">Home</a>
+        <a href="/movies" class="nav-link" data-page="movies" onclick="navigate('/movies');return false;" role="menuitem">Movies</a>
+        <a href="/shows" class="nav-link" data-page="shows" onclick="navigate('/shows');return false;" role="menuitem">TV Shows</a>
+        <a href="/trending" class="nav-link" data-page="trending" onclick="navigate('/trending');return false;" role="menuitem">Trending</a>
+        <a href="/browse" class="nav-link" data-page="browse" onclick="navigate('/browse');return false;" role="menuitem">Browse</a>
+        <a href="/live" class="nav-link" data-page="live" onclick="navigate('/live');return false;" role="menuitem">📡 Live</a>
+        <a href="/new" class="nav-link" data-page="new" onclick="navigate('/new');return false;" role="menuitem">🆕 New</a>
       </div>
     </div>
     <div class="nav-right">
-      <div class="search-wrap" id="searchWrap">
-        <input type="text" id="searchInput" class="search-input" placeholder="Search… (press /)" autocomplete="off" spellcheck="false" />
-        <button class="search-btn" id="searchBtn" aria-label="Search">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <div class="search-wrap" id="searchWrap" role="search">
+        <label for="searchInput" class="sr-only">Search movies and TV shows</label>
+        <input type="search" id="searchInput" class="search-input" placeholder="Search… (press /)" autocomplete="off" spellcheck="false" aria-label="Search movies and TV shows" aria-autocomplete="list" aria-controls="searchSuggestions" />
+        <button class="search-btn" id="searchBtn" aria-label="Submit search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
-        <div class="search-suggestions" id="searchSuggestions"></div>
+        <div class="search-suggestions" id="searchSuggestions" role="listbox" aria-label="Search suggestions"></div>
       </div>
-      <div class="hamburger" id="hamburger" aria-label="Menu">
+      <div class="hamburger" id="hamburger" role="button" aria-label="Open menu" aria-expanded="false" tabindex="0">
         <span></span><span></span><span></span>
       </div>
     </div>
   </nav>
 
   <!-- MOBILE MENU -->
-  <div class="mobile-menu" id="mobileMenu">
+  <nav class="mobile-menu" id="mobileMenu" aria-label="Mobile navigation">
     <a href="/" class="nav-link" data-page="home" onclick="navigate('/');mobileMenu.classList.remove('open');return false;">Home</a>
     <a href="/movies" class="nav-link" data-page="movies" onclick="navigate('/movies');mobileMenu.classList.remove('open');return false;">Movies</a>
     <a href="/shows" class="nav-link" data-page="shows" onclick="navigate('/shows');mobileMenu.classList.remove('open');return false;">TV Shows</a>
@@ -51,20 +127,20 @@
     <a href="/browse" class="nav-link" data-page="browse" onclick="navigate('/browse');mobileMenu.classList.remove('open');return false;">Browse</a>
     <a href="/live" class="nav-link" data-page="live" onclick="navigate('/live');mobileMenu.classList.remove('open');return false;">📡 Live TV</a>
     <a href="/new" class="nav-link" data-page="new" onclick="navigate('/new');mobileMenu.classList.remove('open');return false;">🆕 New Arrivals</a>
-  </div>
+  </nav>
 
   <!-- MAIN APP -->
-  <div id="app"></div>
+  <main id="app" role="main"></main>
 
   <!-- TOAST -->
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- VIDEO PLAYER OVERLAY -->
-  <div class="player-overlay" id="playerOverlay">
+  <div class="player-overlay" id="playerOverlay" role="dialog" aria-modal="true" aria-label="Video player">
     <div class="player-container" id="playerContainer">
-      <button class="player-close" id="playerClose" aria-label="Close">✕</button>
+      <button class="player-close" id="playerClose" aria-label="Close player">✕</button>
       <button class="player-fullscreen-btn" id="playerFullscreenBtn" aria-label="Fullscreen">
-        <svg id="fsIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg id="fsIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
           <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
         </svg>
@@ -74,6 +150,9 @@
       <div class="player-info" id="playerInfo"></div>
     </div>
   </div>
+
+  <!-- Screen-reader only utility class -->
+  <style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
   <script src="/app.js"></script>
