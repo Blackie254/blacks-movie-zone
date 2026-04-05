@@ -661,65 +661,96 @@ async function loadSeasonEpisodes(subjectId, seasonId) {
 }
 
 // ===== PLAYER =====
+// ===== STREAM CACHE — pre-fetch & remember results =====
+const streamCache = new Map();
+
+function prefetchStream(subjectId) {
+  if (streamCache.has(subjectId)) return;
+  // store the promise immediately so duplicate calls share the same fetch
+  const p = Promise.all([
+    api('stream', { subjectId }),
+    api('play',   { subjectId }),
+  ]);
+  streamCache.set(subjectId, p);
+}
+
+function resolveStream(streamData, playData) {
+  const streams = streamData?.data?.streamList || streamData?.data?.streams || [];
+  const valid = streams.filter(s => s.url || s.playUrl || s.streamUrl);
+  if (valid.length) return { streams: valid };
+
+  const direct = playData?.data?.playUrl || playData?.data?.url;
+  if (direct) return { streams: [{ url: direct, quality: 'HD' }] };
+
+  return null;
+}
+
 window.openPlayerEpisode = (id, title) => openPlayer(id, title, false);
 
-window.openPlayer = async function(subjectId, title, isShow) {
+window.openPlayer = async function(subjectId, title) {
   const overlay = document.getElementById('playerOverlay');
-  const header = document.getElementById('playerHeader');
-  const body = document.getElementById('playerBody');
-  const info = document.getElementById('playerInfo');
+  const header  = document.getElementById('playerHeader');
+  const body    = document.getElementById('playerBody');
+  const info    = document.getElementById('playerInfo');
 
   overlay.classList.add('show');
   header.textContent = title;
-  body.innerHTML = `<div class="spinner-wrap" style="min-height:320px"><div class="spinner"></div></div>`;
   info.innerHTML = '';
 
-  const [streamData, playData] = await Promise.all([
-    api('stream', { subjectId }),
-    api('play', { subjectId }),
-  ]);
-
-  const streams = streamData?.data?.streamList || streamData?.data?.streams || [];
-  const directUrl = playData?.data?.playUrl || playData?.data?.url;
-
-  if (streams.length) {
-    const validStreams = streams.filter(s => s.url || s.playUrl || s.streamUrl);
-    if (validStreams.length) {
-      const first = validStreams[0];
-      const url = first.url || first.playUrl || first.streamUrl;
-      body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline style="width:100%;max-height:62vh;display:block;background:#000">
-        <source src="${url}" type="video/mp4" />
-      </video>`;
-      if (validStreams.length > 1) {
-        info.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Quality</div>
-        <div class="player-streams">
-          ${validStreams.map((s, i) => {
-            const su = s.url || s.playUrl || s.streamUrl;
-            return `<button class="stream-btn${i===0?' active':''}" onclick="switchStream('${su}',this)">${s.quality||s.resolution||('Stream '+(i+1))}</button>`;
-          }).join('')}
-        </div>`;
-      }
-      return;
+  // If already cached, resolve instantly — no spinner needed
+  if (streamCache.has(subjectId)) {
+    const cached = streamCache.get(subjectId);
+    // If it's still a pending promise show a slim bar, not a full spinner
+    const isReady = await Promise.race([cached.then(() => true), Promise.resolve(false)]);
+    if (!isReady) {
+      body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
     }
+    const [streamData, playData] = await cached;
+    renderPlayerContent(body, info, subjectId, streamData, playData);
+    return;
   }
 
-  if (directUrl) {
-    body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline style="width:100%;max-height:62vh;display:block;background:#000">
-      <source src="${directUrl}" type="video/mp4" />
+  // Not cached yet — show slim loading bar and start fetching
+  body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
+  prefetchStream(subjectId);
+  const [streamData, playData] = await streamCache.get(subjectId);
+  renderPlayerContent(body, info, subjectId, streamData, playData);
+};
+
+function renderPlayerContent(body, info, subjectId, streamData, playData) {
+  const result = resolveStream(streamData, playData);
+
+  if (result) {
+    const { streams } = result;
+    const url = streams[0].url || streams[0].playUrl || streams[0].streamUrl;
+    body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+      style="width:100%;max-height:62vh;display:block;background:#000">
+      <source src="${url}" />
     </video>`;
+    if (streams.length > 1) {
+      info.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Quality</div>
+      <div class="player-streams">
+        ${streams.map((s, i) => {
+          const su = s.url || s.playUrl || s.streamUrl;
+          const label = s.quality || s.resolution || `Stream ${i+1}`;
+          return `<button class="stream-btn${i===0?' active':''}" onclick="switchStream('${su}',this)">${label}</button>`;
+        }).join('')}
+      </div>`;
+    }
     return;
   }
 
   body.innerHTML = `<div class="player-error">
     <div class="icon">🎬</div>
     <h3>Stream requires authentication</h3>
-    <p style="margin-bottom:20px;font-size:14px">This title's stream is protected. Open it directly in a new tab.</p>
-    <a class="btn-play" href="https://movieapi.xcasper.space/api/bff/stream?subjectId=${subjectId}" target="_blank" rel="noopener" style="display:inline-flex">
+    <p style="margin-bottom:20px;font-size:14px">This title's stream is protected. Open it in a new tab.</p>
+    <a class="btn-play" href="https://movieapi.xcasper.space/api/bff/stream?subjectId=${subjectId}"
+       target="_blank" rel="noopener" style="display:inline-flex">
       <svg width="16" height="16" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
       Open Stream
     </a>
   </div>`;
-};
+}
 
 window.switchStream = function(url, btn) {
   document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
