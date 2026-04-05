@@ -14,92 +14,90 @@ const BROWSER_HEADERS = {
 };
 
 async function proxyFetch(url) {
-  const res = await fetch(url, { headers: BROWSER_HEADERS });
-  return res.json();
+  try {
+    const res = await fetch(url, { headers: BROWSER_HEADERS });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { success: false, error: 'Invalid response from upstream' }; }
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+function wrap(fn) {
+  return async (req, res) => {
+    try { await fn(req, res); } catch (err) { res.json({ success: false, error: err.message }); }
+  };
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/proxy/trending', async (req, res) => {
+app.get('/proxy/trending', wrap(async (req, res) => {
   const { page = 0, perPage = 18 } = req.query;
-  const data = await proxyFetch(`${API_BASE}/trending?page=${page}&perPage=${perPage}`);
-  res.json(data);
-});
+  res.json(await proxyFetch(`${API_BASE}/trending?page=${page}&perPage=${perPage}`));
+}));
 
-app.get('/proxy/ranking', async (req, res) => {
+app.get('/proxy/ranking', wrap(async (req, res) => {
   const { id } = req.query;
   const url = id ? `${API_BASE}/ranking?id=${id}` : `${API_BASE}/ranking`;
-  const data = await proxyFetch(url);
-  res.json(data);
-});
+  res.json(await proxyFetch(url));
+}));
 
-app.get('/proxy/homepage', async (req, res) => {
-  const data = await proxyFetch(`${API_BASE}/homepage`);
-  res.json(data);
-});
+app.get('/proxy/homepage', wrap(async (req, res) => {
+  res.json(await proxyFetch(`${API_BASE}/homepage`));
+}));
 
-app.get('/proxy/search', async (req, res) => {
+app.get('/proxy/search', wrap(async (req, res) => {
   const { keyword, page = 1, perPage = 20, subjectType } = req.query;
   let url = `${API_BASE}/search?keyword=${encodeURIComponent(keyword)}&page=${page}&perPage=${perPage}`;
   if (subjectType) url += `&subjectType=${subjectType}`;
-  const data = await proxyFetch(url);
-  res.json(data);
-});
+  res.json(await proxyFetch(url));
+}));
 
-app.get('/proxy/search/suggest', async (req, res) => {
+app.get('/proxy/search/suggest', wrap(async (req, res) => {
   const { keyword } = req.query;
-  const data = await proxyFetch(`${API_BASE}/search/suggest?keyword=${encodeURIComponent(keyword)}`);
-  res.json(data);
-});
+  res.json(await proxyFetch(`${API_BASE}/search/suggest?keyword=${encodeURIComponent(keyword)}`));
+}));
 
-app.get('/proxy/rich-detail', async (req, res) => {
+app.get('/proxy/rich-detail', wrap(async (req, res) => {
   const { subjectId } = req.query;
-  const data = await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`);
-  res.json(data);
-});
+  res.json(await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`));
+}));
 
-app.get('/proxy/play', async (req, res) => {
+app.get('/proxy/play', wrap(async (req, res) => {
   const { subjectId } = req.query;
-  const data = await proxyFetch(`${API_BASE}/play?subjectId=${subjectId}`);
-  res.json(data);
-});
+  res.json(await proxyFetch(`${API_BASE}/play?subjectId=${subjectId}`));
+}));
 
-app.get('/proxy/stream', async (req, res) => {
+app.get('/proxy/stream', wrap(async (req, res) => {
   const { subjectId } = req.query;
-  const data = await proxyFetch(`${API_BASE}/bff/stream?subjectId=${subjectId}`);
-  res.json(data);
-});
+  res.json(await proxyFetch(`${API_BASE}/bff/stream?subjectId=${subjectId}`));
+}));
 
-app.get('/proxy/captions', async (req, res) => {
+app.get('/proxy/captions', wrap(async (req, res) => {
   const { subjectId, streamId } = req.query;
-  const data = await proxyFetch(`${API_BASE}/captions?subjectId=${subjectId}&streamId=${streamId}`);
-  res.json(data);
-});
+  res.json(await proxyFetch(`${API_BASE}/captions?subjectId=${subjectId}&streamId=${streamId}`));
+}));
 
-app.get('/proxy/recommend', async (req, res) => {
+app.get('/proxy/recommend', wrap(async (req, res) => {
   const { subjectId, page = 1, perPage = 12 } = req.query;
-  const data = await proxyFetch(`${API_BASE}/recommend?subjectId=${subjectId}&page=${page}&perPage=${perPage}`);
-  res.json(data);
-});
+  res.json(await proxyFetch(`${API_BASE}/recommend?subjectId=${subjectId}&page=${page}&perPage=${perPage}`));
+}));
 
-app.get('/proxy/browse', async (req, res) => {
+app.get('/proxy/browse', wrap(async (req, res) => {
   const { subjectType = 1, genre, countryName, page = 1, perPage = 20 } = req.query;
   let url = `${API_BASE}/browse?subjectType=${subjectType}&page=${page}&perPage=${perPage}`;
   if (genre) url += `&genre=${encodeURIComponent(genre)}`;
   if (countryName) url += `&countryName=${encodeURIComponent(countryName)}`;
-  const data = await proxyFetch(url);
-  res.json(data);
-});
+  res.json(await proxyFetch(url));
+}));
 
-app.get('/proxy/hot', async (req, res) => {
-  const data = await proxyFetch(`${API_BASE}/hot`);
-  res.json(data);
-});
+app.get('/proxy/hot', wrap(async (req, res) => {
+  res.json(await proxyFetch(`${API_BASE}/hot`));
+}));
 
-app.get('/proxy/live', async (req, res) => {
-  const data = await proxyFetch(`${API_BASE}/live`);
-  res.json(data);
-});
+app.get('/proxy/live', wrap(async (req, res) => {
+  res.json(await proxyFetch(`${API_BASE}/live`));
+}));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

@@ -139,7 +139,7 @@ function makeCard(item) {
   const genre = (item.genre || '').split(',')[0].trim();
   const poster = item.cover?.url;
   return `
-  <div class="card" onclick="navigate('/detail/${item.subjectId}')">
+  <div class="card" onclick="navigate('/detail/${item.subjectId}')" onmouseenter="prefetchStream('${item.subjectId}')">
     <div style="position:relative;overflow:hidden">
       ${poster
         ? `<img class="card-poster" src="${poster}" alt="${esc(item.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-poster-placeholder" style="display:none">🎬</div>`
@@ -240,9 +240,12 @@ function applyHeroSlide(first) {
     ${genres ? `<span>🎭 ${genres}</span>` : ''}
     ${item.countryName ? `<span>🌍 ${item.countryName}</span>` : ''}`;
   el.querySelector('.hero-desc').textContent = item.description || '';
-  el.querySelector('.hero-btn-play').onclick = () => navigate(`/detail/${item.subjectId}`);
+  el.querySelector('.hero-btn-play').onclick = () => openPlayer(item.subjectId, item.title, item.subjectType === 2);
   el.querySelector('.hero-btn-info').onclick = () => navigate(`/detail/${item.subjectId}`);
   el.querySelectorAll('.hero-dot').forEach((d, i) => d.classList.toggle('active', i === heroSlideIndex));
+
+  // Prefetch stream for current hero item for instant play
+  prefetchStream(item.subjectId);
 }
 
 function heroHtml(count) {
@@ -287,12 +290,23 @@ window.setHeroSlide = function(i) {
 };
 
 // ===== HOME =====
+let homeGenre = '';
+
 async function renderHome() {
   setApp(`<div style="margin-top:64px">${heroHtml(6)}</div>
+
+  <div class="home-genre-bar">
+    <div class="home-genre-label">Browse by Genre</div>
+    <div class="home-genre-pills" id="homeGenrePills">
+      <span class="hg-pill active" onclick="setHomeGenre('',this)">All</span>
+      ${GENRES.map(g => `<span class="hg-pill" onclick="setHomeGenre('${g}',this)">${genreIcon(g)} ${g}</span>`).join('')}
+    </div>
+  </div>
+
   <div class="section"><div class="section-header"><h2 class="section-title">🔥 Trending Now</h2></div>${makeRow('trendRow', skeletonRow())}</div>
   <div class="section"><div class="section-header"><h2 class="section-title">🏆 Rankings</h2></div><div class="rank-tabs" id="rankTabs"></div>${makeRow('rankCards', skeletonRow())}</div>
-  <div class="section"><div class="section-header"><h2 class="section-title">🎬 Popular Movies</h2><a class="section-more" href="/movies" onclick="navigate('/movies');return false;">See All →</a></div>${makeRow('moviesRow', skeletonRow())}</div>
-  <div class="section"><div class="section-header"><h2 class="section-title">📺 TV Shows</h2><a class="section-more" href="/shows" onclick="navigate('/shows');return false;">See All →</a></div>${makeRow('showsRow', skeletonRow())}</div>
+  <div class="section" id="homeMoviesSection"><div class="section-header"><h2 class="section-title" id="homeMoviesTitle">🎬 Popular Movies</h2><a class="section-more" href="/movies" onclick="navigate('/movies');return false;">See All →</a></div>${makeRow('moviesRow', skeletonRow())}</div>
+  <div class="section" id="homeShowsSection"><div class="section-header"><h2 class="section-title" id="homeShowsTitle">📺 TV Shows</h2><a class="section-more" href="/shows" onclick="navigate('/shows');return false;">See All →</a></div>${makeRow('showsRow', skeletonRow())}</div>
   ${renderFooter()}`);
 
   const [trending, ranking, movies, shows] = await Promise.all([
@@ -321,6 +335,44 @@ async function renderHome() {
       `<button class="rank-tab${i===0?' active':''}" onclick="loadRankTab('${t.id}',this)">${t.name}</button>`).join('');
   }
 }
+
+function genreIcon(g) {
+  const icons = {
+    Action:'⚔️',Adventure:'🗺️',Animation:'🎨',Comedy:'😂',Crime:'🔍',
+    Documentary:'🎥',Drama:'🎭',Fantasy:'🧙',Horror:'👻',Mystery:'🕵️',
+    Romance:'❤️','Sci-Fi':'🚀',Thriller:'😱',Western:'🤠'
+  };
+  return icons[g] || '🎬';
+}
+
+window.setHomeGenre = async function(genre, el) {
+  homeGenre = genre;
+  document.querySelectorAll('.hg-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+
+  const label = genre || 'Popular';
+  const movieTitle = document.getElementById('homeMoviesTitle');
+  const showTitle = document.getElementById('homeShowsTitle');
+  if (movieTitle) movieTitle.textContent = `🎬 ${genre ? genre + ' Movies' : 'Popular Movies'}`;
+  if (showTitle) showTitle.textContent = `📺 ${genre ? genre + ' TV Shows' : 'Popular TV Shows'}`;
+
+  fill('moviesRow', skeletonRow());
+  fill('showsRow', skeletonRow());
+
+  const params = { page: 1, perPage: 18 };
+  if (genre) params.genre = genre;
+
+  const [movies, shows] = await Promise.all([
+    api('browse', { ...params, subjectType: 1 }),
+    api('browse', { ...params, subjectType: 2 }),
+  ]);
+
+  const mItems = movies?.data?.subjectList || movies?.data?.items || [];
+  const sItems = shows?.data?.subjectList || shows?.data?.items || [];
+
+  fill('moviesRow', mItems.map(makeCard).join('') || emptyHtml('🎬', `No ${label} movies found`));
+  fill('showsRow', sItems.map(makeCard).join('') || emptyHtml('📺', `No ${label} shows found`));
+};
 
 function fill(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html; }
 
@@ -377,7 +429,7 @@ async function renderBrowse(forceType = null) {
     <div class="pill-label">Genre</div>
     <div class="pill-row" id="genreRow">
       <span class="pill${!bs.genre?' active':''}" onclick="setBrowseGenre('',this)">All</span>
-      ${GENRES.map(g => `<span class="pill${bs.genre===g?' active':''}" onclick="setBrowseGenre('${g}',this)">${g}</span>`).join('')}
+      ${GENRES.map(g => `<span class="pill${bs.genre===g?' active':''}" onclick="setBrowseGenre('${g}',this)">${genreIcon(g)} ${g}</span>`).join('')}
     </div>
 
     <div class="pill-label">Country</div>
@@ -401,7 +453,6 @@ async function renderBrowse(forceType = null) {
 window.setBrowseType = function(type, el) {
   bs.type = type; bs.genre = ''; bs.country = ''; bs.page = 1;
   updatePills('typeRow', el);
-  // reset genre/country to All
   document.querySelectorAll('#genreRow .pill').forEach((p,i) => p.classList.toggle('active', i===0));
   document.querySelectorAll('#countryRow .pill').forEach((p,i) => p.classList.toggle('active', i===0));
   fetchBrowse(true);
@@ -529,6 +580,9 @@ async function fetchSearch(reset) {
 
 // ===== DETAIL =====
 async function renderDetail(id) {
+  // Start pre-fetching the stream immediately while the page loads
+  prefetchStream(id);
+
   setApp(`<div class="spinner-wrap" style="min-height:80vh"><div class="spinner"></div></div>`);
 
   const [detail, rec] = await Promise.all([
@@ -552,6 +606,9 @@ async function renderDetail(id) {
   const seasons = d.seasonList || d.seasons || [];
   const cast = d.staffList || [];
 
+  // Check if stream is already cached for instant-play indicator
+  const streamReady = streamCache.has(id);
+
   setApp(`
   <div class="detail-hero">
     <div class="detail-hero-bg" style="background-image:url('${bgUrl}')"></div>
@@ -574,9 +631,10 @@ async function renderDetail(id) {
         ${genres.length ? `<div class="detail-genres">${genres.map(g => `<span class="detail-genre" onclick="navigate('/browse');setBrowseGenre('${g}',event.target)">${g}</span>`).join('')}</div>` : ''}
         <p class="detail-desc">${esc(d.description || 'No description available.')}</p>
         <div class="detail-actions">
-          <button class="btn-play" onclick="openPlayer('${id}','${esc(d.title)}',${isShow})">
+          <button class="btn-play" id="mainPlayBtn" onclick="openPlayer('${id}','${esc(d.title)}',${isShow})">
             <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             Play Now
+            ${streamReady ? '<span class="play-ready-dot"></span>' : ''}
           </button>
           <button class="btn-info" onclick="toast('Added to watchlist! ✓','success')">＋ Watchlist</button>
         </div>
@@ -631,6 +689,16 @@ async function renderDetail(id) {
   if (isShow && seasons.length) {
     loadSeasonEpisodes(id, seasons[0].seasonId || seasons[0].id || id);
   }
+
+  // Update play button once stream is ready
+  if (!streamReady && streamCache.has(id)) {
+    streamCache.get(id).then(() => {
+      const btn = document.getElementById('mainPlayBtn');
+      if (btn && !btn.querySelector('.play-ready-dot')) {
+        btn.insertAdjacentHTML('beforeend', '<span class="play-ready-dot"></span>');
+      }
+    });
+  }
 }
 
 window.loadSeason = function(subjectId, seasonId, btn) {
@@ -647,7 +715,7 @@ async function loadSeasonEpisodes(subjectId, seasonId) {
   if (!grid) return;
   if (!episodes.length) { grid.innerHTML = emptyHtml('📺', 'No episodes found'); return; }
   grid.innerHTML = `<div class="episodes-grid fade-in">${episodes.map(ep => `
-  <div class="episode-card" onclick="openPlayerEpisode('${ep.subjectId||ep.id}','${esc(ep.title||'Episode')}')">
+  <div class="episode-card" onclick="openPlayerEpisode('${ep.subjectId||ep.id}','${esc(ep.title||'Episode')}')" onmouseenter="prefetchStream('${ep.subjectId||ep.id}')">
     ${ep.cover?.url ? `<img class="ep-thumb" src="${ep.cover.url}" alt="" onerror="this.style.background='var(--bg3)'" loading="lazy" />` : `<div class="ep-thumb" style="background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px">🎬</div>`}
     <div class="ep-info">
       <div class="ep-num">Episode ${ep.index||ep.episode||''}</div>
@@ -665,14 +733,16 @@ async function loadSeasonEpisodes(subjectId, seasonId) {
 const streamCache = new Map();
 
 function prefetchStream(subjectId) {
-  if (streamCache.has(subjectId)) return;
-  // store the promise immediately so duplicate calls share the same fetch
+  if (!subjectId || streamCache.has(subjectId)) return;
   const p = Promise.all([
     api('stream', { subjectId }),
     api('play',   { subjectId }),
   ]);
   streamCache.set(subjectId, p);
 }
+
+// Expose globally so cards can call it on hover
+window.prefetchStream = prefetchStream;
 
 function resolveStream(streamData, playData) {
   const streams = streamData?.data?.streamList || streamData?.data?.streams || [];
@@ -697,12 +767,15 @@ window.openPlayer = async function(subjectId, title) {
   header.textContent = title;
   info.innerHTML = '';
 
-  // If already cached, resolve instantly — no spinner needed
+  // If already cached and resolved, show immediately with no loader
   if (streamCache.has(subjectId)) {
     const cached = streamCache.get(subjectId);
-    // If it's still a pending promise show a slim bar, not a full spinner
-    const isReady = await Promise.race([cached.then(() => true), Promise.resolve(false)]);
-    if (!isReady) {
+    // Check if the promise is already settled (already pre-fetched)
+    let isSettled = false;
+    cached.then(() => { isSettled = true; });
+    // Give it one microtask to settle
+    await Promise.resolve();
+    if (!isSettled) {
       body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
     }
     const [streamData, playData] = await cached;
@@ -710,7 +783,7 @@ window.openPlayer = async function(subjectId, title) {
     return;
   }
 
-  // Not cached yet — show slim loading bar and start fetching
+  // Not cached — start fetching and show slim loading bar
   body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
   prefetchStream(subjectId);
   const [streamData, playData] = await streamCache.get(subjectId);
