@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Black's Movie Zone</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <span class="logo-icon">🎬</span>
+      <span class="logo-text">Black's Movie Zone</span>
+    </div>
+    <nav>
+      <a href="#" class="active">Home</a>
+      <a href="#">Movies</a>
+      <a href="#">TV Shows</a>
+      <a href="#">Trending</a>
+    </nav>
+    <div class="search-bar">
+      <input type="text" placeholder="Search movies, shows..." />
+      <button>Search</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-content">
+      <h1>Welcome to Black's Movie Zone</h1>
+      <p>Your ultimate destination for movies and TV shows</p>
+      <div class="hero-buttons">
+        <button class="btn-primary">Browse Movies</button>
+        <button class="btn-secondary">Explore Shows</button>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <section class="section">
+      <h2 class="section-title">Trending Now</h2>
+      <div class="movies-grid" id="trending-grid"></div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Popular Movies</h2>
+      <div class="movies-grid" id="popular-grid"></div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Top TV Shows</h2>
+      <div class="movies-grid" id="shows-grid"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-logo">
+        <span class="logo-icon">🎬</span>
+        <span class="logo-text">Black's Movie Zone</span>
+      </div>
+      <p>Your go-to place for entertainment</p>
+      <p class="copyright">&copy; 2026 Black's Movie Zone. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
