@@ -561,56 +561,143 @@ window.loadMoreNt = async function() {
 };
 
 // ===== LIVE TV =====
+let liveTab = 'all';
+let allLiveChannels = [];
+
 async function renderLive() {
+  liveTab = 'wrestling';
   setApp(`
-  <div class="page-header fade-up">
-    <h1 class="page-title">📡 Live TV</h1>
-    <p class="page-subtitle">Watch live channels now</p>
+  <div class="live-hero">
+    <div class="live-hero-bg"></div>
+    <div class="live-hero-content">
+      <div class="live-hero-badge"><span class="live-pulse"></span> LIVE NOW</div>
+      <h1 class="live-hero-title">Live TV & Sports</h1>
+      <p class="live-hero-sub">Wrestling, combat sports, news &amp; entertainment — all streaming free</p>
+    </div>
   </div>
+
+  <div class="live-tabs-bar">
+    <button class="live-tab active" data-tab="wrestling" onclick="switchLiveTab('wrestling',this)">🤼 Wrestling &amp; Combat</button>
+    <button class="live-tab" data-tab="sports" onclick="switchLiveTab('sports',this)">🏆 Sports</button>
+    <button class="live-tab" data-tab="entertainment" onclick="switchLiveTab('entertainment',this)">🎬 Movies &amp; TV</button>
+    <button class="live-tab" data-tab="news" onclick="switchLiveTab('news',this)">📰 News</button>
+    <button class="live-tab" data-tab="all" onclick="switchLiveTab('all',this)">📡 All Channels</button>
+  </div>
+
   <div class="section" id="liveSection">
     <div class="spinner-wrap" style="min-height:300px"><div class="spinner"></div></div>
   </div>
   ${renderFooter()}`);
 
-  const data = await api('live');
-  const channels = data?.data?.list || data?.data?.channels || data?.channels || data?.list || [];
+  const [curated, legacy] = await Promise.all([
+    api('live-channels'),
+    api('live'),
+  ]);
+
+  const curatedChannels = curated?.channels || [];
+  const legacyChannels = (legacy?.data?.list || legacy?.data?.channels || []).map(ch => ({
+    id: ch.subjectId || ch.id || Math.random(),
+    name: ch.title || ch.name || 'Channel',
+    category: 'general',
+    badge: '📡',
+    desc: ch.category || '',
+    url: ch.streamUrl || ch.url || '',
+    thumb: ch.cover?.url || ch.logo || ch.thumbnail || '',
+  }));
+
+  allLiveChannels = [...curatedChannels, ...legacyChannels];
+  renderLiveGrid(liveTab);
+}
+
+function renderLiveGrid(tab) {
   const section = document.getElementById('liveSection');
   if (!section) return;
 
-  if (!channels.length) {
-    section.innerHTML = emptyHtml('📡', 'No live channels available right now');
+  const filtered = tab === 'all'
+    ? allLiveChannels
+    : allLiveChannels.filter(ch => ch.category === tab);
+
+  if (!filtered.length) {
+    section.innerHTML = emptyHtml('📡', 'No channels in this category', 'Check back later');
     return;
   }
 
-  section.innerHTML = `<div class="live-grid">${channels.map(ch => `
-    <div class="live-card" onclick="openLiveChannel('${esc(ch.streamUrl||ch.url||'')}','${esc(ch.title||ch.name||'Channel')}','${esc(ch.cover?.url||ch.logo||ch.thumbnail||'')}')">
+  section.innerHTML = `<div class="live-grid fade-in">${filtered.map(ch => `
+    <div class="live-card" onclick="openLiveChannel('${esc(ch.url||'')}','${esc(ch.name||'Channel')}','${esc(ch.badge||'📡')}')">
       <div class="live-thumb">
-        ${ch.cover?.url || ch.logo || ch.thumbnail
-          ? `<img src="${ch.cover?.url||ch.logo||ch.thumbnail}" alt="${esc(ch.title||ch.name)}" onerror="this.style.display='none'" loading="lazy" />`
-          : `<div class="live-thumb-placeholder">📡</div>`}
-        <span class="live-badge">● LIVE</span>
+        ${ch.thumb
+          ? `<img src="${esc(ch.thumb)}" alt="${esc(ch.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" loading="lazy" /><div class="live-thumb-placeholder" style="display:none">${ch.badge||'📡'}</div>`
+          : `<div class="live-thumb-placeholder">${ch.badge||'📡'}</div>`}
+        <span class="live-badge-pill">● LIVE</span>
+        <div class="live-play-btn">
+          <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
       </div>
       <div class="live-info">
-        <div class="live-title">${esc(ch.title||ch.name||'Channel')}</div>
-        ${ch.category ? `<div class="live-cat">${esc(ch.category)}</div>` : ''}
+        <div class="live-name">${esc(ch.name)}</div>
+        ${ch.desc ? `<div class="live-desc">${esc(ch.desc)}</div>` : ''}
+        <div class="live-cat-tag">${liveCatLabel(ch.category)}</div>
       </div>
     </div>`).join('')}</div>`;
 }
 
-window.openLiveChannel = function(streamUrl, title, thumb) {
+function liveCatLabel(cat) {
+  const map = { wrestling:'🤼 Wrestling', sports:'🏆 Sports', news:'📰 News', entertainment:'🎬 Entertainment', general:'📡 Live' };
+  return map[cat] || '📡 Live';
+}
+
+window.switchLiveTab = function(tab, btn) {
+  liveTab = tab;
+  document.querySelectorAll('.live-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLiveGrid(tab);
+};
+
+window.openLiveChannel = function(streamUrl, title, badge) {
   if (!streamUrl) { toast('No stream URL for this channel', 'error'); return; }
   const overlay = document.getElementById('playerOverlay');
   const header  = document.getElementById('playerHeader');
   const body    = document.getElementById('playerBody');
   const info    = document.getElementById('playerInfo');
   overlay.classList.add('show');
-  header.textContent = `📡 ${title}`;
-  info.innerHTML = '';
-  body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
-    style="width:100%;max-height:62vh;display:block;background:#000">
-    <source src="${esc(streamUrl)}" type="application/x-mpegURL" />
-    <source src="${esc(streamUrl)}" type="video/mp4" />
-  </video>`;
+  header.textContent = `${badge || '📡'} ${title}`;
+  info.innerHTML = `<div style="font-size:12px;color:var(--text3);padding-top:4px">● Live streaming — quality may vary by region</div>`;
+
+  body.innerHTML = `<div style="position:relative;background:#000">
+    <div id="liveLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#080c14;z-index:2">
+      <div class="spinner"></div>
+      <div style="color:var(--text3);font-size:13px">Connecting to stream…</div>
+    </div>
+    <video id="livePlayer" controls autoplay playsinline
+      style="width:100%;max-height:62vh;display:block;background:#000;opacity:0;transition:opacity 0.4s">
+    </video>
+  </div>`;
+
+  const video = document.getElementById('livePlayer');
+  const loading = document.getElementById('liveLoading');
+
+  function showPlayer() { if (loading) loading.style.display = 'none'; video.style.opacity = '1'; }
+  video.addEventListener('playing', showPlayer);
+  video.addEventListener('loadeddata', showPlayer);
+  setTimeout(showPlayer, 8000);
+
+  const isHLS = streamUrl.includes('.m3u8') || streamUrl.includes('m3u');
+  if (isHLS && window.Hls && Hls.isSupported()) {
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+    hls.loadSource(streamUrl);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+    hls.on(Hls.Events.ERROR, (e, d) => {
+      if (d.fatal) { loading.innerHTML = `<div style="color:var(--text3);font-size:14px;text-align:center">⚠️ Stream unavailable<br><span style="font-size:11px;opacity:0.6">Try another channel</span></div>`; }
+    });
+    video._hls = hls;
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = streamUrl;
+    video.play().catch(() => {});
+  } else {
+    video.src = streamUrl;
+    video.play().catch(() => {});
+  }
 };
 
 // ===== SERIES & SHOWS PAGE =====
@@ -1304,8 +1391,11 @@ function playerError(msg, link) {
 
 document.getElementById('playerClose').onclick = () => {
   document.getElementById('playerOverlay').classList.remove('show');
-  const vid = document.getElementById('videoPlayer');
-  if (vid) { vid.pause(); vid.src = ''; }
+  const vid = document.getElementById('videoPlayer') || document.getElementById('livePlayer');
+  if (vid) {
+    if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
+    vid.pause(); vid.src = '';
+  }
 };
 document.getElementById('playerOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) document.getElementById('playerClose').click();

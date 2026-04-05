@@ -46,7 +46,19 @@ All routes are on `/proxy/*` and forward to `https://movieapi.xcasper.space/api/
 - **Browse** (`/browse`) — Filterable browse with Type/Genre/Country dropdowns
 - **Search** (`/search?q=...`) — Search results with type filter
 - **Detail** (`/detail/:id`) — Full detail page with cast, episodes (for shows), recommendations
-- **Player** — Overlay modal video player with stream quality switcher
+- **Live TV** (`/live`) — Live TV with hero banner, tabbed categories (Wrestling/Sports/News/Entertainment/All), HLS.js streaming, curated iptv-org channels
+- **Player** — Overlay modal video player with stream quality switcher; HLS.js for m3u8 live streams
+
+## Live TV System
+
+Curated channels sourced from iptv-org public API (streams.json / channels.json):
+- **Wrestling & Combat**: TNA Wrestling, Impact Network, Fight Network, FightBox HD, DAZN Combat, Hard Knocks, Persiana Fight
+- **Sports**: beIN SPORTS XTRA, ESPN8: The Ocho, CBS Sports HQ, CBS Golazo, DD Sports India, ERT Sports 1, Africa24 Sport
+- **News**: ABC News Live (2 streams), CBC News
+- **Entertainment**: Pluto TV channels (classic films, action, horror, comedy, sci-fi, crime)
+
+Server endpoint: `GET /proxy/live-channels` — returns hardcoded curated channel list with stream URLs.
+HLS.js loaded via CDN for m3u8 stream support in all browsers.
 
 ## Features
 

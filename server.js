@@ -229,6 +229,41 @@ async function getImdbId(title, releaseDate, isShow) {
   }
 }
 
+// ===== CURATED LIVE CHANNELS =====
+const LIVE_CHANNELS = [
+  // ── WRESTLING ──
+  { id: 'tna', name: 'TNA Wrestling', category: 'wrestling', badge: '🤼', desc: 'TNA / Impact Wrestling 24/7', url: 'https://d39g1vxj2ef6in.cloudfront.net/v1/master/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod-rakuten-stitched/master.m3u8?ads.xumo_channelId=88883039' },
+  { id: 'impact', name: 'Impact Network', category: 'wrestling', badge: '🥊', desc: 'Impact Wrestling Live', url: 'https://edge1.lifestreamcdn.com/live/impactroku1/index.m3u8' },
+  { id: 'fightnet', name: 'Fight Network', category: 'wrestling', badge: '🏆', desc: 'Combat sports & wrestling', url: 'https://d12a2vxqkkh1bo.cloudfront.net/hls/main.m3u8' },
+  { id: 'fightbox', name: 'FightBox HD', category: 'wrestling', badge: '🥋', desc: 'Fights, MMA & combat sports', url: 'https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc002/fightboxhdraw/fightboxhdraw.m3u8' },
+  { id: 'dazncombat', name: 'DAZN Combat', category: 'wrestling', badge: '⚔️', desc: 'Combat sports on DAZN', url: 'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
+  { id: 'hardknocks', name: 'Hard Knocks', category: 'wrestling', badge: '💪', desc: 'Hard Knocks Fighting Championship', url: 'https://d39g1vxj2ef6in.cloudfront.net/v1/master/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod-rakuten-stitched/master.m3u8?ads.xumo_channelId=88883037' },
+  { id: 'persianafight', name: 'Persiana Fight', category: 'wrestling', badge: '🥊', desc: 'Fight sports channel', url: 'https://fighthls.persiana.live/hls/stream.m3u8' },
+  // ── SPORTS ──
+  { id: 'bein', name: 'beIN SPORTS XTRA', category: 'sports', badge: '⚽', desc: 'Premium sports from beIN', url: 'https://amg01334-beinsportsllc-beinxtra-samsungau-eiyvc.amagi.tv/playlist/amg01334-beinsportsllc-beinxtra-samsungau/playlist.m3u8' },
+  { id: 'espnocho', name: 'ESPN8: The Ocho', category: 'sports', badge: '🏆', desc: 'If it is almost a sport, it is on ESPN8', url: 'https://d3b6q2ou5kp8ke.cloudfront.net/ESPNTheOcho.m3u8' },
+  { id: 'cbssports', name: 'CBS Sports HQ', category: 'sports', badge: '🎯', desc: 'CBS Sports 24/7 news & events', url: 'https://propee33f9c2.airspace-cdn.cbsivideo.com/index.m3u8' },
+  { id: 'cbsgolazo', name: 'CBS Golazo', category: 'sports', badge: '⚽', desc: 'Soccer news & highlights', url: 'https://proped3fhg87.airspace-cdn.cbsivideo.com/golazo-live-dai/master/golazo-live.m3u8' },
+  { id: 'ddsports', name: 'DD Sports India', category: 'sports', badge: '🏏', desc: 'Cricket, kabaddi & more', url: 'https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/b17adfe543354fdd8d189b110617cddd/index.m3u8' },
+  { id: 'ertsports1', name: 'ERT Sports 1', category: 'sports', badge: '🏊', desc: 'Greek public sports channel', url: 'http://hbbtvapp.ert.gr/stream.php/v/vid_ertsports_mpeg.2ts' },
+  { id: 'africa24sport', name: 'Africa24 Sport', category: 'sports', badge: '🌍', desc: 'Pan-African sports coverage', url: 'https://africa24.vedge.infomaniak.com/livecast/ik:africa24sport/manifest.m3u8' },
+  // ── NEWS ──
+  { id: 'abcnews1', name: 'ABC News Live', category: 'news', badge: '📺', desc: 'Breaking news 24/7', url: 'https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master_400.m3u8' },
+  { id: 'abcnews2', name: 'ABC News Live 2', category: 'news', badge: '📺', desc: 'ABC News second channel', url: 'https://abcnews-streams.akamaized.net/hls/live/2023561/abcnewshudson2/master_400.m3u8' },
+  { id: 'cbcnews', name: 'CBC News', category: 'news', badge: '🍁', desc: 'Canada\'s public news network', url: 'https://nn.geo.cbc.ca/hls/cbc-1080.m3u8' },
+  // ── ENTERTAINMENT ──
+  { id: 'pluto-classic', name: 'Classic Movies', category: 'entertainment', badge: '🎬', desc: 'Timeless classic films', url: 'https://jmp2.uk/plu-62.m3u8' },
+  { id: 'pluto-action', name: 'Action Movies', category: 'entertainment', badge: '💥', desc: 'Non-stop action films', url: 'https://jmp2.uk/plu-63.m3u8' },
+  { id: 'pluto-horror', name: 'Horror 24/7', category: 'entertainment', badge: '👻', desc: 'Horror movies round the clock', url: 'https://jmp2.uk/plu-106.m3u8' },
+  { id: 'pluto-comedy', name: 'Comedy Central', category: 'entertainment', badge: '😂', desc: 'Stand-up & comedy shows', url: 'https://jmp2.uk/plu-81.m3u8' },
+  { id: 'pluto-scifi', name: 'Sci-Fi Movies', category: 'entertainment', badge: '🚀', desc: 'Science fiction films', url: 'https://jmp2.uk/plu-64.m3u8' },
+  { id: 'pluto-crime', name: 'Crime Drama', category: 'entertainment', badge: '🔍', desc: 'Crime & thriller dramas', url: 'https://jmp2.uk/plu-195.m3u8' },
+];
+
+app.get('/proxy/live-channels', (req, res) => {
+  res.json({ success: true, channels: LIVE_CHANNELS });
+});
+
 // ===== WATCH INFO — builds embed server list including MovieBox & HydraHD =====
 app.get('/proxy/watch', wrap(async (req, res) => {
   const { subjectId } = req.query;
