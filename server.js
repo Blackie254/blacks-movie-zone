@@ -173,6 +173,41 @@ app.get('/proxy/newtoxic/resolve', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/newtoxic/resolve?fid=${fid}`));
 }));
 
+// ===== IMDb ID lookup via IMDb's free autocomplete =====
+async function getImdbId(title, releaseDate, isShow) {
+  try {
+    const query = (title || '').toLowerCase().trim();
+    if (!query) return null;
+    const year = releaseDate ? parseInt(releaseDate.split('-')[0]) : null;
+    const firstChar = query[0];
+    const url = `https://v2.sg.media-imdb.com/suggestion/${firstChar}/${encodeURIComponent(query)}.json`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' },
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await res.json();
+    const results = data.d || [];
+    const tvTypes = ['tvSeries', 'tvMiniSeries', 'tvShort', 'tvMovie'];
+
+    // 1. Exact title + year + correct type
+    let match = results.find(r =>
+      r.l?.toLowerCase() === title.toLowerCase() &&
+      (!year || r.y === year) &&
+      (isShow ? tvTypes.includes(r.qid) : r.qid === 'movie')
+    );
+    // 2. Exact title + year (any type)
+    if (!match && year) match = results.find(r => r.l?.toLowerCase() === title.toLowerCase() && r.y === year);
+    // 3. Exact title only
+    if (!match) match = results.find(r => r.l?.toLowerCase() === title.toLowerCase());
+    // 4. First result
+    if (!match) match = results[0];
+
+    return match?.id || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // ===== WATCH INFO — extracts playable URLs from rich-detail =====
 app.get('/proxy/watch', wrap(async (req, res) => {
   const { subjectId } = req.query;
@@ -183,10 +218,22 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   const d = detail?.data;
   if (!d) return res.json({ success: false, error: 'Could not fetch detail' });
 
-  const detailPath = d.detailPath || '';
-  const embedUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
+  const isShow = d.subjectType === 2;
 
-  // Build preview clip URL from trailerUrl (short CDN video — NOT the full movie)
+  // Look up IMDb ID → build vidsrc.to embed (allows iframing, full movie)
+  const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
+  let vidsrcUrl = null;
+  if (imdbId) {
+    vidsrcUrl = isShow
+      ? `https://vidsrc.to/embed/tv/${imdbId}`
+      : `https://vidsrc.to/embed/movie/${imdbId}`;
+  }
+
+  // aOneRoom embed as secondary fallback
+  const detailPath = d.detailPath || '';
+  const aoneUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
+
+  // Short CDN preview clip (trailer — not the full movie)
   let previewUrl = null;
   if (d.trailerUrl) {
     try {
@@ -197,23 +244,25 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     } catch (_) {}
   }
 
-  // Build dub/audio track list — each dub has its own embed URL
+  // Language / dub track list (vidsrc doesn't support per-dub, aOneRoom does)
   const tracks = (d.dubs || []).map(dub => ({
     subjectId: dub.subjectId,
     label: dub.lanName,
     detailPath: dub.detailPath,
-    embedUrl: dub.detailPath ? `https://www.aoneroom.com/videos/${dub.detailPath}` : null,
+    aoneUrl: dub.detailPath ? `https://www.aoneroom.com/videos/${dub.detailPath}` : null,
     original: dub.original,
   }));
 
   res.json({
     success: true,
     title: d.title,
-    embedUrl,
-    detailPath,
+    imdbId,
+    vidsrcUrl,
+    aoneUrl,
     previewUrl,
     tracks,
-    isShow: d.subjectType === 2,
+    isShow,
+    year: d.releaseDate ? d.releaseDate.split('-')[0] : null,
   });
 }));
 

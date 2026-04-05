@@ -1007,54 +1007,123 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  const { embedUrl, previewUrl, tracks } = watchData;
+  const { vidsrcUrl, aoneUrl, previewUrl, tracks, imdbId, isShow } = watchData;
 
-  if (!embedUrl && !previewUrl) {
+  if (!vidsrcUrl && !aoneUrl && !previewUrl) {
     body.innerHTML = playerError('No stream found for this title.', 'https://www.aoneroom.com');
     return;
   }
 
-  // Language / dub buttons — each switches the watch link to that dub's embed
-  const langBtns = tracks && tracks.length > 1
-    ? `<div class="player-section-label">Language / Audio</div>
-       <div class="player-streams" style="flex-wrap:wrap">
-         ${tracks.map((t, i) => `<button class="stream-btn${i===0?' active':''}"
-           onclick="switchDubLink('${esc(t.embedUrl||embedUrl)}',this)">${esc(t.label)}</button>`).join('')}
-       </div>`
-    : '';
+  // ── PRIMARY: vidsrc.to iframe — allows iframing, full-length movie ──
+  if (vidsrcUrl) {
+    body.innerHTML = `
+      <div style="position:relative;background:#000;line-height:0">
+        <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0d1117;z-index:2">
+          <div class="spinner"></div>
+          <div style="color:var(--text3);font-size:13px">Loading player…</div>
+        </div>
+        <iframe id="vidsrcFrame"
+          src="${esc(vidsrcUrl)}"
+          allowfullscreen
+          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+          referrerpolicy="no-referrer-when-downgrade"
+          scrolling="no"
+          style="width:100%;height:64vh;border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
+        </iframe>
+      </div>`;
 
-  // Main panel: preview clip auto-plays, full-movie button always visible
+    const iframe = document.getElementById('vidsrcFrame');
+    const loading = document.getElementById('vsLoading');
+    iframe.addEventListener('load', () => {
+      if (loading) loading.style.display = 'none';
+      iframe.style.opacity = '1';
+    });
+    // Safety timeout — hide loading after 8s regardless
+    setTimeout(() => {
+      if (loading) loading.style.display = 'none';
+      iframe.style.opacity = '1';
+    }, 8000);
+
+    // Source switcher: vidsrc servers (they have multiple)
+    const servers = [
+      { label: 'Server 1', url: vidsrcUrl },
+      { label: 'Server 2', url: vidsrcUrl.replace('vidsrc.to', 'vidsrc.me') },
+    ];
+    if (isShow) servers.push({ label: 'Server 3', url: vidsrcUrl.replace('vidsrc.to', 'vidsrc.pm') });
+
+    const serverBtns = servers.map((s, i) =>
+      `<button class="stream-btn${i===0?' active':''}" onclick="switchVidsrcServer('${esc(s.url)}',this)">${esc(s.label)}</button>`
+    ).join('');
+
+    // Language buttons — switch to aOneRoom for dubbed versions
+    const dubBtns = tracks && tracks.length > 1
+      ? `<div class="player-section-label" style="margin-top:14px">Language / Dubs (via aOneRoom)</div>
+         <div class="player-streams" style="flex-wrap:wrap">
+           ${tracks.map((t, i) => `<button class="stream-btn${t.original?' active':''}"
+             onclick="switchDubLink('${esc(t.aoneUrl||aoneUrl||'')}',this)">${esc(t.label)}</button>`).join('')}
+         </div>`
+      : '';
+
+    info.innerHTML = `
+      <div class="player-section-label">Stream Server</div>
+      <div class="player-streams">${serverBtns}</div>
+      ${dubBtns}
+      <div class="player-trailer-bar" style="margin-top:14px;flex-wrap:wrap;gap:8px">
+        ${aoneUrl ? `<a class="stream-btn" href="${esc(aoneUrl)}" target="_blank" rel="noopener">↗ aOneRoom</a>` : ''}
+        ${previewUrl ? `<button class="stream-btn" onclick="switchToPreview('${esc(previewUrl)}')">▶ Preview Clip</button>` : ''}
+        <span style="font-size:11px;color:var(--text3)">Powered by vidsrc.to</span>
+      </div>`;
+    return;
+  }
+
+  // ── FALLBACK: no vidsrc (no IMDb ID found) — preview clip + aOneRoom link ──
   if (previewUrl) {
     body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
       style="width:100%;max-height:56vh;display:block;background:#000">
       <source src="${esc(previewUrl)}" type="video/mp4" />
     </video>`;
   } else {
-    body.innerHTML = `<div style="height:56px"></div>`;
+    body.innerHTML = `<div style="height:40px"></div>`;
   }
 
-  const watchLink = embedUrl || '#';
   info.innerHTML = `
     <div class="watch-full-bar">
       <div class="watch-full-left">
-        <div class="watch-full-label">
-          ${previewUrl ? '▶ Preview clip is playing below' : '🎬 ' + esc(title)}
-        </div>
-        <div class="watch-full-sub">Click to watch the full movie on aOneRoom (free, no sign-up)</div>
+        <div class="watch-full-label">${previewUrl ? '▶ Playing preview clip' : '🎬 ' + esc(title)}</div>
+        <div class="watch-full-sub">Watch the full movie on aOneRoom — free, no sign-up needed</div>
       </div>
-      <a id="watchFullBtn" class="btn-play watch-full-btn" href="${watchLink}" target="_blank" rel="noopener">
+      ${aoneUrl ? `<a class="btn-play watch-full-btn" href="${esc(aoneUrl)}" target="_blank" rel="noopener">
         <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         Watch Full Movie
-      </a>
-    </div>
-    ${langBtns}`;
+      </a>` : ''}
+    </div>`;
 }
 
-window.switchDubLink = function(url, btn) {
+window.switchVidsrcServer = function(url, btn) {
   document.querySelectorAll('.player-streams .stream-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const link = document.getElementById('watchFullBtn');
-  if (link) link.href = url;
+  const iframe = document.getElementById('vidsrcFrame');
+  const loading = document.getElementById('vsLoading');
+  if (!iframe) return;
+  if (loading) { loading.style.display = 'flex'; }
+  iframe.style.opacity = '0';
+  iframe.src = url;
+};
+
+window.switchDubLink = function(url, btn) {
+  if (!url) return;
+  document.querySelectorAll('.player-streams .stream-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  window.open(url, '_blank', 'noopener');
+};
+
+window.switchToPreview = function(url) {
+  const body = document.getElementById('playerBody');
+  if (!body) return;
+  body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+    style="width:100%;max-height:64vh;display:block;background:#000">
+    <source src="${esc(url)}" type="video/mp4" />
+  </video>`;
 };
 
 function playerError(msg, link) {
