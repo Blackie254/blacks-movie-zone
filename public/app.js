@@ -729,31 +729,16 @@ async function loadSeasonEpisodes(subjectId, seasonId) {
 }
 
 // ===== PLAYER =====
-// ===== STREAM CACHE — pre-fetch & remember results =====
+// ===== WATCH CACHE — pre-fetch & remember results =====
 const streamCache = new Map();
 
 function prefetchStream(subjectId) {
   if (!subjectId || streamCache.has(subjectId)) return;
-  const p = Promise.all([
-    api('stream', { subjectId }),
-    api('play',   { subjectId }),
-  ]);
-  streamCache.set(subjectId, p);
+  streamCache.set(subjectId, fetch(`/proxy/watch?subjectId=${subjectId}`).then(r => r.json()));
 }
 
 // Expose globally so cards can call it on hover
 window.prefetchStream = prefetchStream;
-
-function resolveStream(streamData, playData) {
-  const streams = streamData?.data?.streamList || streamData?.data?.streams || [];
-  const valid = streams.filter(s => s.url || s.playUrl || s.streamUrl);
-  if (valid.length) return { streams: valid };
-
-  const direct = playData?.data?.playUrl || playData?.data?.url;
-  if (direct) return { streams: [{ url: direct, quality: 'HD' }] };
-
-  return null;
-}
 
 window.openPlayerEpisode = (id, title) => openPlayer(id, title, false);
 
@@ -767,63 +752,116 @@ window.openPlayer = async function(subjectId, title) {
   header.textContent = title;
   info.innerHTML = '';
 
-  // If already cached and resolved, show immediately with no loader
-  if (streamCache.has(subjectId)) {
-    const cached = streamCache.get(subjectId);
-    // Check if the promise is already settled (already pre-fetched)
-    let isSettled = false;
-    cached.then(() => { isSettled = true; });
-    // Give it one microtask to settle
-    await Promise.resolve();
-    if (!isSettled) {
-      body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
-    }
-    const [streamData, playData] = await cached;
-    renderPlayerContent(body, info, subjectId, streamData, playData);
-    return;
+  // Show loading bar immediately
+  body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
+
+  // Use cached fetch if available, else fetch now
+  if (!streamCache.has(subjectId)) {
+    prefetchStream(subjectId);
   }
 
-  // Not cached — start fetching and show slim loading bar
-  body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
-  prefetchStream(subjectId);
-  const [streamData, playData] = await streamCache.get(subjectId);
-  renderPlayerContent(body, info, subjectId, streamData, playData);
+  const watchData = await streamCache.get(subjectId);
+  renderPlayerContent(body, info, subjectId, title, watchData);
 };
 
-function renderPlayerContent(body, info, subjectId, streamData, playData) {
-  const result = resolveStream(streamData, playData);
-
-  if (result) {
-    const { streams } = result;
-    const url = streams[0].url || streams[0].playUrl || streams[0].streamUrl;
-    body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
-      style="width:100%;max-height:62vh;display:block;background:#000">
-      <source src="${url}" />
-    </video>`;
-    if (streams.length > 1) {
-      info.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Quality</div>
-      <div class="player-streams">
-        ${streams.map((s, i) => {
-          const su = s.url || s.playUrl || s.streamUrl;
-          const label = s.quality || s.resolution || `Stream ${i+1}`;
-          return `<button class="stream-btn${i===0?' active':''}" onclick="switchStream('${su}',this)">${label}</button>`;
-        }).join('')}
-      </div>`;
-    }
+function renderPlayerContent(body, info, subjectId, title, watchData) {
+  if (!watchData?.success) {
+    body.innerHTML = `<div class="player-error">
+      <div class="icon">⚠️</div>
+      <h3>Could not load stream</h3>
+      <p style="margin-bottom:20px;font-size:14px">Try opening this title directly on the source.</p>
+      <a class="btn-play" href="https://www.aoneroom.com/search" target="_blank" rel="noopener" style="display:inline-flex">
+        <svg width="16" height="16" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        Watch on aOneRoom
+      </a>
+    </div>`;
     return;
   }
 
+  const { embedUrl, trailerUrl, tracks } = watchData;
+
+  // Build audio/language track buttons
+  const trackBtns = tracks && tracks.length > 1
+    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Audio / Language</div>
+       <div class="player-streams">
+         ${tracks.map((t, i) => `<button class="stream-btn${i===0?' active':''}" onclick="switchEmbedTrack('${esc(t.embedUrl||'')}',this)">${esc(t.label)}</button>`).join('')}
+       </div>`
+    : '';
+
+  // Primary: iframe embed of the aOneRoom player
+  if (embedUrl) {
+    body.innerHTML = `
+      <div class="player-iframe-wrap">
+        <iframe id="embedPlayer"
+          src="${embedUrl}"
+          allowfullscreen
+          allow="autoplay; fullscreen; picture-in-picture"
+          referrerpolicy="no-referrer"
+          style="width:100%;height:62vh;border:none;display:block;background:#000">
+        </iframe>
+      </div>`;
+
+    // Trailer fallback + track buttons in info area
+    info.innerHTML = `
+      ${trackBtns}
+      ${trailerUrl ? `
+      <div class="player-trailer-bar">
+        <span style="font-size:12px;color:var(--text3)">Can't see the player above?</span>
+        <button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">
+          ▶ Watch Trailer
+        </button>
+        <a class="stream-btn" href="${embedUrl}" target="_blank" rel="noopener">
+          ↗ Open in New Tab
+        </a>
+      </div>` : `
+      <div class="player-trailer-bar">
+        <a class="stream-btn" href="${embedUrl}" target="_blank" rel="noopener">↗ Open in New Tab</a>
+      </div>`}`;
+    return;
+  }
+
+  // Fallback: direct trailer video
+  if (trailerUrl) {
+    const proxied = `/proxy/video?url=${encodeURIComponent(trailerUrl)}`;
+    body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+      style="width:100%;max-height:62vh;display:block;background:#000">
+      <source src="${proxied}" type="video/mp4" />
+    </video>`;
+    info.innerHTML = `${trackBtns}
+      <div class="player-trailer-bar">
+        <span style="font-size:12px;color:var(--text3)">Showing trailer preview</span>
+      </div>`;
+    return;
+  }
+
+  // Nothing available
   body.innerHTML = `<div class="player-error">
     <div class="icon">🎬</div>
-    <h3>Stream requires authentication</h3>
-    <p style="margin-bottom:20px;font-size:14px">This title's stream is protected. Open it in a new tab.</p>
-    <a class="btn-play" href="https://movieapi.xcasper.space/api/bff/stream?subjectId=${subjectId}"
-       target="_blank" rel="noopener" style="display:inline-flex">
+    <h3>No stream available</h3>
+    <p style="margin-bottom:20px;font-size:14px">This title doesn't have a playable source yet.</p>
+    <a class="btn-play" href="https://www.aoneroom.com" target="_blank" rel="noopener" style="display:inline-flex">
       <svg width="16" height="16" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-      Open Stream
+      Browse aOneRoom
     </a>
   </div>`;
 }
+
+window.switchEmbedTrack = function(url, btn) {
+  if (!url) return;
+  document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const iframe = document.getElementById('embedPlayer');
+  if (iframe) iframe.src = url;
+};
+
+window.switchToTrailer = function(encodedUrl, title) {
+  const body = document.getElementById('playerBody');
+  const proxied = `/proxy/video?url=${encodedUrl}`;
+  body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+    style="width:100%;max-height:62vh;display:block;background:#000">
+    <source src="${proxied}" type="video/mp4" />
+  </video>`;
+};
 
 window.switchStream = function(url, btn) {
   document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));

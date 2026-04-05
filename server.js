@@ -4,13 +4,14 @@ const path = require('path');
 const app = express();
 const PORT = 5000;
 const API_BASE = 'https://movieapi.xcasper.space/api';
+const ALLOWED_CDN = ['macdn.aoneroom.com', 'pbcdnw.aoneroom.com', 'cdn.aoneroom.com'];
 
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
-  'Referer': 'https://movieapi.xcasper.space/',
-  'Origin': 'https://movieapi.xcasper.space',
+  'Referer': 'https://www.aoneroom.com/',
+  'Origin': 'https://www.aoneroom.com',
 };
 
 async function proxyFetch(url) {
@@ -97,6 +98,69 @@ app.get('/proxy/hot', wrap(async (req, res) => {
 
 app.get('/proxy/live', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/live`));
+}));
+
+// ===== WATCH INFO — extracts playable URLs from rich-detail =====
+app.get('/proxy/watch', wrap(async (req, res) => {
+  const { subjectId } = req.query;
+  if (!subjectId) return res.json({ success: false, error: 'Missing subjectId' });
+
+  const detail = await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`);
+  const d = detail?.data;
+  if (!d) return res.json({ success: false, error: 'Could not fetch detail' });
+
+  const detailPath = d.detailPath || '';
+  const embedUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
+
+  // Build dub/audio track list
+  const tracks = (d.dubs || []).map(dub => ({
+    subjectId: dub.subjectId,
+    label: dub.lanName,
+    detailPath: dub.detailPath,
+    embedUrl: dub.detailPath ? `https://www.aoneroom.com/videos/${dub.detailPath}` : null,
+    original: dub.original,
+  }));
+
+  res.json({
+    success: true,
+    title: d.title,
+    trailerUrl: d.trailerUrl || null,
+    trailerCover: d.trailerCover || null,
+    embedUrl,
+    detailPath,
+    tracks,
+    isShow: d.subjectType === 2,
+  });
+}));
+
+// ===== VIDEO PROXY — pipes CDN video with range request support =====
+app.get('/proxy/video', wrap(async (req, res) => {
+  const rawUrl = req.query.url;
+  if (!rawUrl) return res.status(400).send('Missing url');
+
+  let parsed;
+  try { parsed = new URL(decodeURIComponent(rawUrl)); } catch { return res.status(400).send('Invalid url'); }
+
+  if (!ALLOWED_CDN.includes(parsed.hostname)) {
+    return res.status(403).send('Domain not allowed');
+  }
+
+  const fetchHeaders = {
+    'User-Agent': BROWSER_HEADERS['User-Agent'],
+    'Referer': 'https://www.aoneroom.com/',
+    'Origin': 'https://www.aoneroom.com',
+  };
+  if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
+
+  const upstream = await fetch(parsed.href, { headers: fetchHeaders });
+
+  res.status(upstream.status);
+  const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
+  forward.forEach(h => { const v = upstream.headers.get(h); if (v) res.setHeader(h, v); });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  const { Readable } = require('stream');
+  Readable.fromWeb(upstream.body).pipe(res);
 }));
 
 app.get('*', (req, res) => {

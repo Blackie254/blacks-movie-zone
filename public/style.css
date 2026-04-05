@@ -387,6 +387,11 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .player-error { padding: 48px 32px; text-align: center; color: var(--text2); }
 .player-error .icon { font-size: 52px; margin-bottom: 16px; }
 .player-error h3 { font-size: 19px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.player-iframe-wrap { position: relative; width: 100%; background: #000; }
+.player-trailer-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 0 4px;
+}
 
 /* ===== TOAST ===== */
 .toast {
