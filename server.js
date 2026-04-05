@@ -173,15 +173,12 @@ app.get('/proxy/newtoxic/resolve', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/newtoxic/resolve?fid=${fid}`));
 }));
 
-// ===== WATCH INFO — extracts playable URLs, falls back to ShowBox =====
+// ===== WATCH INFO — extracts playable URLs from rich-detail =====
 app.get('/proxy/watch', wrap(async (req, res) => {
   const { subjectId } = req.query;
   if (!subjectId) return res.json({ success: false, error: 'Missing subjectId' });
 
-  const [detail, streamData] = await Promise.all([
-    proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`),
-    proxyFetch(`${API_BASE}/bff/stream?subjectId=${subjectId}`),
-  ]);
+  const detail = await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`);
 
   const d = detail?.data;
   if (!d) return res.json({ success: false, error: 'Could not fetch detail' });
@@ -189,55 +186,18 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   const detailPath = d.detailPath || '';
   const embedUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
 
-  // Extract direct stream URLs from the stream API response
-  const sd = streamData?.data || streamData;
-  const rawStreams =
-    sd?.streamList ||
-    sd?.streams ||
-    sd?.sources ||
-    (sd?.url ? [{ url: sd.url, quality: 'Default' }] : []);
-
-  let streams = rawStreams
-    .filter(s => s?.url)
-    .map(s => ({
-      url: `/proxy/video?url=${encodeURIComponent(s.url)}`,
-      quality: s.quality || s.resolution || s.label || 'Default',
-      raw: s.url,
-    }))
-    .filter(s => {
-      try {
-        const host = new URL(s.raw).hostname;
-        return ALLOWED_CDN.includes(host);
-      } catch { return false; }
-    });
-
-  // ===== SHOWBOX FALLBACK — try to find streams if main API has none =====
-  let showboxStreams = [];
-  if (streams.length === 0 && d.title) {
+  // Build direct stream list from trailerUrl (real CDN video file)
+  const streams = [];
+  if (d.trailerUrl) {
     try {
-      const isShow = d.subjectType === 2;
-      const sbSearch = await proxyFetch(
-        `${API_BASE}/showbox/search?keyword=${encodeURIComponent(d.title)}&type=${isShow ? 'tv' : 'movie'}&pagelimit=3`
-      );
-      const sbItems = sbSearch?.data?.list || sbSearch?.list || sbSearch?.results || [];
-      if (sbItems.length) {
-        const sbId = sbItems[0].id || sbItems[0].showbox_id;
-        if (sbId) {
-          const sbStreams = await proxyFetch(`${API_BASE}/showbox/streams?id=${sbId}`);
-          const rawSb =
-            sbStreams?.data?.list ||
-            sbStreams?.data?.streams ||
-            sbStreams?.streams ||
-            sbStreams?.list ||
-            [];
-          showboxStreams = rawSb
-            .filter(s => s?.url || s?.link)
-            .map(s => ({
-              url: s.url || s.link,
-              quality: s.quality || s.resolution || s.label || 'HD',
-              source: 'ShowBox',
-            }));
-        }
+      const host = new URL(d.trailerUrl).hostname;
+      if (ALLOWED_CDN.includes(host)) {
+        // SD stream (always available)
+        streams.push({
+          url: `/proxy/video?url=${encodeURIComponent(d.trailerUrl)}`,
+          quality: 'SD',
+          raw: d.trailerUrl,
+        });
       }
     } catch (_) {}
   }
@@ -254,12 +214,9 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   res.json({
     success: true,
     title: d.title,
-    trailerUrl: d.trailerUrl || null,
-    trailerCover: d.trailerCover || null,
     embedUrl,
     detailPath,
     streams,
-    showboxStreams,
     tracks,
     isShow: d.subjectType === 2,
   });

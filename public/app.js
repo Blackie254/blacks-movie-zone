@@ -1015,57 +1015,57 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  const { embedUrl, trailerUrl, streams, showboxStreams, tracks } = watchData;
-  const allStreams = [...(streams || []), ...(showboxStreams || []).map(s => ({ ...s, label: `[SB] ${s.quality}` }))];
+  const { embedUrl, streams, tracks } = watchData;
 
-  // Build audio/language track buttons
+  // Audio/language track buttons
   const trackBtns = tracks && tracks.length > 1
-    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Audio / Language</div>
+    ? `<div class="player-section-label">Audio / Language</div>
        <div class="player-streams">
          ${tracks.map((t, i) => `<button class="stream-btn${i===0?' active':''}" onclick="switchEmbedTrack('${esc(t.embedUrl||'')}',this)">${esc(t.label)}</button>`).join('')}
        </div>`
     : '';
 
-  if (allStreams.length) {
-    const first = allStreams[0];
-    const videoSrc = first.url || first.link || '';
-    const qualityBtns = allStreams.length > 1
-      ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Quality / Source</div>
-         <div class="player-streams">
-           ${allStreams.map((s, i) => `<button class="stream-btn${i===0?' active':''}" onclick="switchStream('${esc(s.url||s.link||'')}',this)">${esc(s.label||s.quality||'HD')}</button>`).join('')}
-         </div>`
-      : '';
-
+  // --- CASE 1: We have direct streams (CDN video files) ---
+  if (streams && streams.length) {
+    const first = streams[0];
     body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
       style="width:100%;max-height:62vh;display:block;background:#000">
-      <source src="${esc(videoSrc)}" type="video/mp4" />
+      <source src="${esc(first.url)}" type="video/mp4" />
     </video>`;
+
+    const qualityBtns = streams.length > 1
+      ? `<div class="player-section-label">Quality</div>
+         <div class="player-streams">
+           ${streams.map((s, i) => `<button class="stream-btn${i===0?' active':''}" onclick="switchStream('${esc(s.url)}',this)">${esc(s.quality)}</button>`).join('')}
+         </div>`
+      : '';
 
     info.innerHTML = `
       ${trackBtns}
       ${qualityBtns}
       ${embedUrl ? `
       <div class="player-trailer-bar">
-        <span style="font-size:12px;color:var(--text3)">Having issues?</span>
-        <button class="stream-btn" onclick="switchToEmbed('${esc(embedUrl)}')">▶ Try Embed Player</button>
-        ${trailerUrl ? `<button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">▶ Watch Trailer</button>` : ''}
-      </div>` : trailerUrl ? `
-      <div class="player-trailer-bar">
-        <button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">▶ Watch Trailer</button>
+        <span class="player-bar-label">Also available:</span>
+        <button class="stream-btn" onclick="switchToEmbed('${esc(embedUrl)}')">
+          <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" style="margin-right:4px"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+          Full Embed Player
+        </button>
+        <a class="stream-btn" href="${embedUrl}" target="_blank" rel="noopener">↗ Open in New Tab</a>
       </div>` : ''}`;
     return;
   }
 
+  // --- CASE 2: No direct streams — show the embed player prominently ---
   if (embedUrl) {
     body.innerHTML = `
       <div class="player-iframe-wrap" style="position:relative">
-        <div id="iframeBlockedMsg" style="display:none;position:absolute;inset:0;background:#0d1117;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:2">
-          <div style="font-size:36px">🎬</div>
-          <div style="color:var(--text1);font-weight:700;font-size:18px">Player blocked by browser</div>
-          <div style="color:var(--text3);font-size:13px;max-width:340px;text-align:center">Your browser prevented embedding this player. Open the movie directly to watch it.</div>
-          <a class="btn-play" href="${embedUrl}" target="_blank" rel="noopener" style="display:inline-flex;text-decoration:none">
-            <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            Watch Movie Now
+        <div id="iframeBlockedMsg" style="display:none;position:absolute;inset:0;background:#0d1117;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:2;padding:32px;text-align:center">
+          <div style="font-size:48px">🎬</div>
+          <div style="color:var(--text);font-weight:700;font-size:20px">Open to Watch</div>
+          <div style="color:var(--text3);font-size:14px;max-width:320px">Click the button below to watch this title on the streaming site.</div>
+          <a class="btn-play" href="${embedUrl}" target="_blank" rel="noopener" style="display:inline-flex;text-decoration:none;font-size:16px;padding:14px 32px">
+            <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            Watch Now
           </a>
         </div>
         <iframe id="embedPlayer"
@@ -1084,35 +1084,23 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
         const doc = iframe.contentDocument;
         if (doc === null) { msg.style.display = 'flex'; iframe.style.display = 'none'; }
       } catch (_) {}
-    }, 3000);
+    }, 2500);
 
     info.innerHTML = `
       ${trackBtns}
       <div class="player-trailer-bar" style="flex-wrap:wrap;gap:8px">
-        <a class="stream-btn" href="${embedUrl}" target="_blank" rel="noopener" style="font-weight:700;background:var(--ice);color:#000">
-          ↗ Open Movie in New Tab
+        <a class="stream-btn" href="${embedUrl}" target="_blank" rel="noopener" style="font-weight:700;background:var(--blue);color:#fff;border-color:var(--blue)">
+          <svg width="13" height="13" fill="white" viewBox="0 0 24 24" style="margin-right:4px"><path d="M8 5v14l11-7z"/></svg>
+          Watch Full Movie ↗
         </a>
-        ${trailerUrl ? `<button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">▶ Watch Trailer</button>` : ''}
       </div>`;
     return;
   }
 
-  if (trailerUrl) {
-    const proxied = `/proxy/video?url=${encodeURIComponent(trailerUrl)}`;
-    body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
-      style="width:100%;max-height:62vh;display:block;background:#000">
-      <source src="${proxied}" type="video/mp4" />
-    </video>`;
-    info.innerHTML = `${trackBtns}
-      <div class="player-trailer-bar">
-        <span style="font-size:12px;color:var(--text3)">Showing trailer — full stream unavailable</span>
-      </div>`;
-    return;
-  }
-
+  // --- CASE 3: Nothing available ---
   body.innerHTML = `<div class="player-error">
     <div class="icon">🎬</div>
-    <h3>No stream available</h3>
+    <h3>Stream not available</h3>
     <p style="margin-bottom:20px;font-size:14px">This title doesn't have a playable source yet.</p>
     <a class="btn-play" href="https://www.aoneroom.com" target="_blank" rel="noopener" style="display:inline-flex">
       <svg width="16" height="16" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
