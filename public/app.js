@@ -1390,6 +1390,7 @@ function playerError(msg, link) {
 }
 
 document.getElementById('playerClose').onclick = () => {
+  if (document.fullscreenElement) document.exitFullscreen();
   document.getElementById('playerOverlay').classList.remove('show');
   const vid = document.getElementById('videoPlayer') || document.getElementById('livePlayer');
   if (vid) {
@@ -1400,6 +1401,32 @@ document.getElementById('playerClose').onclick = () => {
 document.getElementById('playerOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) document.getElementById('playerClose').click();
 });
+
+// ── Fullscreen button ──
+const fsBtn = document.getElementById('playerFullscreenBtn');
+const fsIconExpand = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+const fsIconCompress = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>`;
+
+fsBtn.addEventListener('click', () => {
+  const container = document.getElementById('playerContainer');
+  if (!document.fullscreenElement) {
+    (container.requestFullscreen || container.webkitRequestFullscreen || container.mozRequestFullScreen).call(container);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen).call(document);
+  }
+});
+
+document.addEventListener('fullscreenchange', updateFsIcon);
+document.addEventListener('webkitfullscreenchange', updateFsIcon);
+document.addEventListener('mozfullscreenchange', updateFsIcon);
+
+function updateFsIcon() {
+  fsBtn.innerHTML = document.fullscreenElement ? fsIconCompress : fsIconExpand;
+  fsBtn.setAttribute('aria-label', document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen');
+}
+
+// Double-click video to toggle fullscreen
+document.getElementById('playerBody').addEventListener('dblclick', () => fsBtn.click());
 
 // ===== FOOTER =====
 function renderFooter() {
