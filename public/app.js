@@ -1189,34 +1189,65 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow)
   }
 
   const { vidsrcUrl, aoneUrl, previewUrl, tracks } = watchData;
-  const embedServers = watchData.servers && watchData.servers.length ? watchData.servers : (vidsrcUrl ? [{ label: 'Server 1', url: vidsrcUrl }] : []);
+  const allServers = watchData.servers && watchData.servers.length
+    ? watchData.servers
+    : (vidsrcUrl ? [{ label: 'Server 1', type: 'embed', url: vidsrcUrl }] : []);
 
-  if (embedServers.length) {
-    const firstUrl = embedServers[0].url;
-    embed.innerHTML = `
-    <div style="position:relative;background:#000;line-height:0">
-      <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0a0f;z-index:2">
-        <div class="spinner"></div>
-        <div style="color:var(--text3);font-size:13px">Loading player…</div>
-      </div>
-      <iframe id="vidsrcFrame"
-        src="${esc(firstUrl)}"
-        allowfullscreen
-        allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock; screen-orientation"
-        referrerpolicy="no-referrer-when-downgrade"
-        scrolling="no"
-        style="width:100%;aspect-ratio:16/9;border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
-      </iframe>
-    </div>`;
+  if (allServers.length) {
+    const first = allServers[0];
 
-    const iframe = document.getElementById('vidsrcFrame');
-    const loading = document.getElementById('vsLoading');
-    iframe.addEventListener('load', () => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; });
-    setTimeout(() => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; }, 10000);
+    if (first.type === 'direct') {
+      // Native video player for MovieBox streams
+      const s = first.streams[0];
+      embed.innerHTML = `
+      <div style="position:relative;background:#000;line-height:0">
+        <div id="mbLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0a0f;z-index:2">
+          <div class="spinner"></div>
+          <div style="color:var(--text3);font-size:13px">Loading MovieBox stream…</div>
+        </div>
+        <video id="mbPlayer" controls autoplay playsinline crossorigin="anonymous"
+          style="width:100%;aspect-ratio:16/9;display:block;background:#000;opacity:0;transition:opacity 0.5s">
+        </video>
+      </div>`;
+      loadMbStream(s.url, s.format);
+    } else {
+      const firstUrl = first.url || '';
+      embed.innerHTML = `
+      <div style="position:relative;background:#000;line-height:0">
+        <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0a0f;z-index:2">
+          <div class="spinner"></div>
+          <div style="color:var(--text3);font-size:13px">Loading player…</div>
+        </div>
+        <iframe id="vidsrcFrame"
+          src="${esc(firstUrl)}"
+          allowfullscreen
+          allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock; screen-orientation"
+          referrerpolicy="no-referrer-when-downgrade"
+          scrolling="no"
+          style="width:100%;aspect-ratio:16/9;border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
+        </iframe>
+      </div>`;
+      const iframe = document.getElementById('vidsrcFrame');
+      const loading = document.getElementById('vsLoading');
+      iframe.addEventListener('load', () => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; });
+      setTimeout(() => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; }, 10000);
+    }
 
-    const serverBtns = embedServers.map((s, i) =>
-      `<button class="watch-srv-btn${i===0?' active':''}" onclick="switchVidsrcServer('${esc(s.url)}',this)">${esc(s.label)}</button>`
-    ).join('');
+    const serverBtns = allServers.map((s, i) => {
+      if (s.type === 'direct') {
+        const encoded = encodeURIComponent(JSON.stringify(s.streams));
+        return `<button class="watch-srv-btn${i===0?' active':''}" onclick="switchWatchToDirectServer('${encoded}',this)">${esc(s.label)} <span style="font-size:9px;vertical-align:middle;opacity:0.7;margin-left:3px">▶ HD</span></button>`;
+      }
+      return `<button class="watch-srv-btn${i===0?' active':''}" onclick="switchVidsrcServer('${esc(s.url)}',this)">${esc(s.label)}</button>`;
+    }).join('');
+
+    const qualityBtns = first.type === 'direct' && first.streams?.length > 1
+      ? `<div class="watch-ctrl-divider"></div>
+         <div class="watch-ctrl-group watch-quality-group">
+           <span class="watch-ctrl-label">Quality</span>
+           ${first.streams.map((q, i) => `<button class="mb-quality-btn watch-srv-btn${i===0?' active':''}" onclick="switchMbQuality('${esc(q.url)}','${q.format}',this)">${esc(q.quality)}</button>`).join('')}
+         </div>`
+      : '';
 
     const dubBtns = tracks && tracks.length > 1
       ? `<div class="watch-ctrl-divider"></div>
@@ -1231,6 +1262,7 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow)
         <span class="watch-ctrl-label">Server</span>
         ${serverBtns}
       </div>
+      ${qualityBtns}
       ${dubBtns}
       <div class="watch-ctrl-end">
         ${aoneUrl ? `<a class="watch-srv-btn" href="${esc(aoneUrl)}" target="_blank" rel="noopener">↗ aOneRoom</a>` : ''}
@@ -1259,6 +1291,43 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow)
       <a class="watch-srv-btn active" href="${esc(aoneUrl)}" target="_blank" rel="noopener">↗ aOneRoom</a>
     </div>` : '';
 }
+
+window.switchWatchToDirectServer = function(encodedStreams, btn) {
+  document.querySelectorAll('.watch-ctrl-group .watch-srv-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const streams = JSON.parse(decodeURIComponent(encodedStreams));
+  const embed = document.getElementById('watchPlayerEmbed');
+  if (!embed) return;
+  const s = streams[0];
+  embed.innerHTML = `
+    <div style="position:relative;background:#000;line-height:0">
+      <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0a0f;z-index:2">
+        <div class="spinner"></div>
+        <div style="color:var(--text3);font-size:13px">Loading MovieBox stream…</div>
+      </div>
+      <video id="mbPlayer" controls autoplay playsinline crossorigin="anonymous"
+        style="width:100%;aspect-ratio:16/9;display:block;background:#000;opacity:0;transition:opacity 0.5s">
+      </video>
+    </div>`;
+  loadMbStream(s.url, s.format);
+
+  // Update quality group
+  const controls = document.getElementById('watchControls');
+  let qGroup = controls?.querySelector('.watch-quality-group');
+  if (controls && streams.length > 1) {
+    if (!qGroup) {
+      qGroup = document.createElement('div');
+      qGroup.className = 'watch-ctrl-group watch-quality-group';
+      qGroup.innerHTML = `<span class="watch-ctrl-label">Quality</span>`;
+      const end = controls.querySelector('.watch-ctrl-end');
+      if (end) controls.insertBefore(qGroup, end); else controls.appendChild(qGroup);
+    }
+    qGroup.innerHTML = `<span class="watch-ctrl-label">Quality</span>
+      ${streams.map((q, i) => `<button class="mb-quality-btn watch-srv-btn${i===0?' active':''}" onclick="switchMbQuality('${esc(q.url)}','${q.format}',this)">${esc(q.quality)}</button>`).join('')}`;
+  } else if (qGroup) {
+    qGroup.remove();
+  }
+};
 
 window.switchWatchToPreview = function(url) {
   const embed = document.getElementById('watchPlayerEmbed');
@@ -1324,6 +1393,78 @@ window.openPlayer = async function(subjectId, title) {
   renderPlayerContent(body, info, subjectId, title, watchData);
 };
 
+// ===== DIRECT (MOVIEBOX) PLAYER =====
+function playDirectStream(body, streams) {
+  if (!streams || !streams.length) {
+    body.innerHTML = playerError('No direct stream available.', 'https://www.aoneroom.com');
+    return;
+  }
+  const s = streams[0];
+  body.innerHTML = `
+    <div style="position:relative;background:#000;line-height:0">
+      <div id="mbLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0a0f;z-index:2">
+        <div class="spinner"></div>
+        <div style="color:var(--text3);font-size:13px">Loading MovieBox stream…</div>
+      </div>
+      <video id="mbPlayer" controls autoplay playsinline
+        style="width:100%;height:64vh;display:block;background:#000;opacity:0;transition:opacity 0.5s"
+        crossorigin="anonymous">
+      </video>
+    </div>`;
+  loadMbStream(s.url, s.format);
+
+  // Quality buttons rendered by caller
+}
+
+function loadMbStream(url, format) {
+  const video = document.getElementById('mbPlayer');
+  const loading = document.getElementById('mbLoading');
+  if (!video) return;
+
+  function onReady() {
+    if (loading) loading.style.display = 'none';
+    video.style.opacity = '1';
+  }
+  video.addEventListener('playing', onReady, { once: true });
+  video.addEventListener('loadeddata', onReady, { once: true });
+  setTimeout(onReady, 12000);
+
+  if (video._hls) { video._hls.destroy(); video._hls = null; }
+
+  const isHls = format === 'hls' || url.includes('.m3u8');
+  if (isHls && window.Hls && Hls.isSupported()) {
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30 });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+    hls.on(Hls.Events.ERROR, (e, d) => {
+      if (d.fatal) {
+        if (loading) loading.innerHTML = `<div style="color:var(--text3);font-size:14px;text-align:center;padding:20px">⚠️ Stream failed<br><span style="font-size:11px;opacity:0.6">Try another server or quality</span></div>`;
+      }
+    });
+    video._hls = hls;
+  } else if (isHls && video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+    video.play().catch(() => {});
+  } else {
+    video.src = url;
+    video.play().catch(() => {});
+  }
+}
+
+window.switchMbQuality = function(url, format, btn) {
+  document.querySelectorAll('.mb-quality-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadMbStream(url, format);
+  const loading = document.getElementById('mbLoading');
+  const video = document.getElementById('mbPlayer');
+  if (loading) {
+    loading.style.display = 'flex';
+    loading.innerHTML = `<div class="spinner"></div><div style="color:var(--text3);font-size:13px">Switching quality…</div>`;
+  }
+  if (video) video.style.opacity = '0';
+};
+
 function renderPlayerContent(body, info, subjectId, title, watchData) {
   if (!watchData?.success) {
     body.innerHTML = playerError('Could not load this title.', 'https://www.aoneroom.com/search');
@@ -1331,39 +1472,59 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
   }
 
   const { vidsrcUrl, aoneUrl, previewUrl, tracks, imdbId, isShow } = watchData;
-  const embedServers = watchData.servers && watchData.servers.length ? watchData.servers : (vidsrcUrl ? [{ label: 'Server 1', url: vidsrcUrl }] : []);
+  const allServers = watchData.servers && watchData.servers.length
+    ? watchData.servers
+    : (vidsrcUrl ? [{ label: 'Server 1', type: 'embed', url: vidsrcUrl }] : []);
 
-  if (!embedServers.length && !aoneUrl && !previewUrl) {
+  if (!allServers.length && !aoneUrl && !previewUrl) {
     body.innerHTML = playerError('No stream found for this title.', 'https://www.aoneroom.com');
     return;
   }
 
-  if (embedServers.length) {
-    const firstUrl = embedServers[0].url;
-    body.innerHTML = `
-      <div style="position:relative;background:#000;line-height:0">
-        <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0d1117;z-index:2">
-          <div class="spinner"></div>
-          <div style="color:var(--text3);font-size:13px">Loading player…</div>
-        </div>
-        <iframe id="vidsrcFrame"
-          src="${esc(firstUrl)}"
-          allowfullscreen
-          allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock; screen-orientation"
-          referrerpolicy="no-referrer-when-downgrade"
-          scrolling="no"
-          style="width:100%;height:64vh;border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
-        </iframe>
-      </div>`;
+  if (allServers.length) {
+    const first = allServers[0];
 
-    const iframe = document.getElementById('vidsrcFrame');
-    const loading = document.getElementById('vsLoading');
-    iframe.addEventListener('load', () => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; });
-    setTimeout(() => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; }, 10000);
+    if (first.type === 'direct') {
+      playDirectStream(body, first.streams);
+    } else {
+      const firstUrl = first.url || '';
+      body.innerHTML = `
+        <div style="position:relative;background:#000;line-height:0">
+          <div id="vsLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0d1117;z-index:2">
+            <div class="spinner"></div>
+            <div style="color:var(--text3);font-size:13px">Loading player…</div>
+          </div>
+          <iframe id="vidsrcFrame"
+            src="${esc(firstUrl)}"
+            allowfullscreen
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock; screen-orientation"
+            referrerpolicy="no-referrer-when-downgrade"
+            scrolling="no"
+            style="width:100%;height:64vh;border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
+          </iframe>
+        </div>`;
+      const iframe = document.getElementById('vidsrcFrame');
+      const loading = document.getElementById('vsLoading');
+      iframe.addEventListener('load', () => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; });
+      setTimeout(() => { if (loading) loading.style.display = 'none'; iframe.style.opacity = '1'; }, 10000);
+    }
 
-    const serverBtns = embedServers.map((s, i) =>
-      `<button class="stream-btn${i===0?' active':''}" onclick="switchVidsrcServer('${esc(s.url)}',this)">${esc(s.label)}</button>`
-    ).join('');
+    // Build server buttons
+    const serverBtns = allServers.map((s, i) => {
+      if (s.type === 'direct') {
+        const encoded = encodeURIComponent(JSON.stringify(s.streams));
+        return `<button class="stream-btn${i===0?' active':''}" onclick="switchToDirectServer('${encoded}',this)">${esc(s.label)} <span style="font-size:9px;vertical-align:middle;opacity:0.7;margin-left:3px">▶ HD</span></button>`;
+      }
+      return `<button class="stream-btn${i===0?' active':''}" onclick="switchVidsrcServer('${esc(s.url)}',this)">${esc(s.label)}</button>`;
+    }).join('');
+
+    // Quality buttons for direct server
+    const qualityBtns = first.type === 'direct' && first.streams?.length > 1
+      ? `<div class="player-section-label" style="margin-top:14px">Quality</div>
+         <div class="player-streams" style="flex-wrap:wrap">
+           ${first.streams.map((q, i) => `<button class="mb-quality-btn stream-btn${i===0?' active':''}" onclick="switchMbQuality('${esc(q.url)}','${q.format}',this)">${esc(q.quality)}</button>`).join('')}
+         </div>`
+      : '';
 
     const dubBtns = tracks && tracks.length > 1
       ? `<div class="player-section-label" style="margin-top:14px">Language / Dubs</div>
@@ -1375,6 +1536,7 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     info.innerHTML = `
       <div class="player-section-label">Stream Server</div>
       <div class="player-streams">${serverBtns}</div>
+      ${qualityBtns}
       ${dubBtns}
       <div class="player-trailer-bar" style="margin-top:14px;flex-wrap:wrap;gap:8px">
         ${aoneUrl ? `<a class="stream-btn" href="${esc(aoneUrl)}" target="_blank" rel="noopener">↗ aOneRoom</a>` : ''}
@@ -1404,6 +1566,31 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
       </a>` : ''}
     </div>`;
 }
+
+// Switch between direct and embed servers
+window.switchToDirectServer = function(encodedStreams, btn) {
+  document.querySelectorAll('.player-streams .stream-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const streams = JSON.parse(decodeURIComponent(encodedStreams));
+  const body = document.getElementById('playerBody');
+  if (body) playDirectStream(body, streams);
+
+  // Update quality buttons
+  const info = document.getElementById('playerInfo');
+  const qWrap = info?.querySelector('.mb-quality-wrap');
+  if (info && streams.length > 1) {
+    let qDiv = info.querySelector('.mb-quality-section');
+    if (!qDiv) {
+      qDiv = document.createElement('div');
+      qDiv.className = 'mb-quality-section';
+      info.insertBefore(qDiv, info.querySelector('.player-trailer-bar'));
+    }
+    qDiv.innerHTML = `<div class="player-section-label" style="margin-top:14px">Quality</div>
+      <div class="player-streams" style="flex-wrap:wrap">
+        ${streams.map((q, i) => `<button class="mb-quality-btn stream-btn${i===0?' active':''}" onclick="switchMbQuality('${esc(q.url)}','${q.format}',this)">${esc(q.quality)}</button>`).join('')}
+      </div>`;
+  }
+};
 
 window.switchVidsrcServer = function(url, btn) {
   btn.closest('.watch-ctrl-group, .player-streams')
@@ -1462,11 +1649,13 @@ function playerError(msg, link) {
 document.getElementById('playerClose').onclick = () => {
   if (document.fullscreenElement) document.exitFullscreen();
   document.getElementById('playerOverlay').classList.remove('show');
-  const vid = document.getElementById('videoPlayer') || document.getElementById('livePlayer');
-  if (vid) {
-    if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
-    vid.pause(); vid.src = '';
-  }
+  ['videoPlayer', 'livePlayer', 'mbPlayer'].forEach(id => {
+    const vid = document.getElementById(id);
+    if (vid) {
+      if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
+      vid.pause(); vid.src = '';
+    }
+  });
 };
 document.getElementById('playerOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) document.getElementById('playerClose').click();

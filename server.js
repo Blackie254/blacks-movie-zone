@@ -288,7 +288,108 @@ app.get('/proxy/live-channels', (req, res) => {
   res.json({ success: true, channels: LIVE_CHANNELS });
 });
 
-// ===== WATCH INFO — builds embed server list including MovieBox & HydraHD =====
+// ===== MOVIEBOX STREAM RESOLVER =====
+async function getMovieBoxStreams(title, year, isShow, season = 1, episode = 1) {
+  try {
+    const type = isShow ? 'tv' : 'movie';
+    const search = await proxyFetch(`${API_BASE}/showbox/search?keyword=${encodeURIComponent(title)}&type=${type}&pagelimit=8`);
+    const items = search?.data?.list || search?.data?.data?.list || search?.list || [];
+    if (!items.length) return null;
+
+    let match = items[0];
+    if (year) {
+      const yr = String(year);
+      const exact = items.find(i => {
+        const iy = String(i.year || i.releaseYear || '').slice(0, 4);
+        return (i.title || i.name || '').toLowerCase() === title.toLowerCase() && iy === yr;
+      });
+      if (exact) match = exact;
+    }
+
+    const mbId = match.id || match.tid;
+    if (!mbId) return null;
+
+    let rawStreams = [];
+    let directLink = null;
+
+    if (isShow) {
+      const r = await proxyFetch(`${API_BASE}/stream?id=${mbId}&type=tv&season=${season}&episode=${episode}`);
+      directLink = r?.data?.link || r?.data?.url || r?.link || r?.url;
+      rawStreams = r?.data?.list || r?.list || [];
+    } else {
+      const [r1, r2] = await Promise.all([
+        proxyFetch(`${API_BASE}/showbox/streams?id=${mbId}`),
+        proxyFetch(`${API_BASE}/stream?id=${mbId}&type=movie`),
+      ]);
+      rawStreams = r1?.data?.list || r1?.data?.streams || r1?.list || [];
+      directLink = r2?.data?.link || r2?.data?.url || r2?.link || r2?.url;
+    }
+
+    const streams = rawStreams.map(s => {
+      const raw = s.path || s.url || s.link || '';
+      if (!raw) return null;
+      return {
+        url: `/proxy/mb-stream?url=${encodeURIComponent(raw)}`,
+        quality: s.real_quality || s.quality || s.resolution || 'HD',
+        format: raw.includes('.m3u8') ? 'hls' : 'mp4',
+      };
+    }).filter(Boolean);
+
+    if (!streams.length && directLink) {
+      streams.push({
+        url: `/proxy/mb-stream?url=${encodeURIComponent(directLink)}`,
+        quality: 'HD',
+        format: directLink.includes('.m3u8') ? 'hls' : 'mp4',
+      });
+    }
+
+    return streams.length ? { id: mbId, streams } : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// ===== HLS-AWARE MOVIEBOX STREAM PROXY =====
+app.get('/proxy/mb-stream', wrap(async (req, res) => {
+  const rawUrl = req.query.url;
+  if (!rawUrl) return res.status(400).send('Missing url');
+  let targetUrl;
+  try { targetUrl = decodeURIComponent(rawUrl); } catch { return res.status(400).send('Invalid url'); }
+
+  const upHeaders = {
+    'User-Agent': BROWSER_HEADERS['User-Agent'],
+    'Referer': 'https://www.showbox.media/',
+    'Origin': 'https://www.showbox.media',
+  };
+  if (req.headers.range) upHeaders['Range'] = req.headers.range;
+
+  const upstream = await fetch(targetUrl, { headers: upHeaders });
+  const ct = upstream.headers.get('content-type') || '';
+
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  if (ct.includes('mpegurl') || targetUrl.includes('.m3u8')) {
+    const text = await upstream.text();
+    const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+    const rewritten = text.split('\n').map(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return line;
+      const absUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
+      return `/proxy/mb-stream?url=${encodeURIComponent(absUrl)}`;
+    }).join('\n');
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.send(rewritten);
+  } else {
+    res.status(upstream.status);
+    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
+      const v = upstream.headers.get(h); if (v) res.setHeader(h, v);
+    });
+    const { Readable } = require('stream');
+    Readable.fromWeb(upstream.body).pipe(res);
+  }
+}));
+
+// ===== WATCH INFO — builds embed server list with MovieBox as Server 1 =====
 app.get('/proxy/watch', wrap(async (req, res) => {
   const { subjectId } = req.query;
   if (!subjectId) return res.json({ success: false, error: 'Missing subjectId' });
@@ -298,30 +399,47 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   if (!d) return res.json({ success: false, error: 'Could not fetch detail' });
 
   const isShow = d.subjectType === 2;
-  const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
+  const year = d.releaseDate ? d.releaseDate.split('-')[0] : null;
+
+  // Resolve IMDb ID and MovieBox streams in parallel
+  const [imdbId, mb] = await Promise.all([
+    getImdbId(d.title, d.releaseDate, isShow),
+    Promise.race([
+      getMovieBoxStreams(d.title, year, isShow),
+      new Promise(r => setTimeout(() => r(null), 7000)),
+    ]),
+  ]);
+
+  const mbStreams = mb?.streams || [];
 
   let servers = [];
-  if (imdbId) {
-    if (isShow) {
-      servers = [
-        { label: 'Server 1', url: `https://player.videasy.net/tv/${imdbId}/1/1` },
-        { label: 'Blizzflix', url: `https://moviesapi.club/tv/${imdbId}-1-1` },
-        { label: 'Server 2', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=1&episode=1` },
-        { label: 'Server 3', url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=1&episode=1` },
-        { label: 'Server 4', url: `https://2embed.cc/embedtv/${imdbId}` },
-      ];
-    } else {
-      servers = [
-        { label: 'Server 1', url: `https://autoembed.co/movie/imdb/${imdbId}` },
-        { label: 'Blizzflix', url: `https://moviesapi.club/movie/${imdbId}` },
-        { label: 'Server 2', url: `https://player.videasy.net/movie/${imdbId}` },
-        { label: 'Server 3', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
-        { label: 'Server 4', url: `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` },
-      ];
-    }
+  if (isShow) {
+    servers = [
+      mbStreams.length
+        ? { label: 'Server 1', type: 'direct', streams: mbStreams }
+        : { label: 'Server 1', type: 'embed', url: imdbId ? `https://player.videasy.net/tv/${imdbId}/1/1` : null },
+      ...(imdbId ? [
+        { label: 'Blizzflix', type: 'embed', url: `https://moviesapi.club/tv/${imdbId}-1-1` },
+        { label: 'Server 2', type: 'embed', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=1&episode=1` },
+        { label: 'Server 3', type: 'embed', url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=1&episode=1` },
+        { label: 'Server 4', type: 'embed', url: `https://2embed.cc/embedtv/${imdbId}` },
+      ] : []),
+    ].filter(s => s.url || s.streams?.length);
+  } else {
+    servers = [
+      mbStreams.length
+        ? { label: 'Server 1', type: 'direct', streams: mbStreams }
+        : { label: 'Server 1', type: 'embed', url: imdbId ? `https://autoembed.co/movie/imdb/${imdbId}` : null },
+      ...(imdbId ? [
+        { label: 'Blizzflix', type: 'embed', url: `https://moviesapi.club/movie/${imdbId}` },
+        { label: 'Server 2', type: 'embed', url: `https://player.videasy.net/movie/${imdbId}` },
+        { label: 'Server 3', type: 'embed', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
+        { label: 'Server 4', type: 'embed', url: `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` },
+      ] : []),
+    ].filter(s => s.url || s.streams?.length);
   }
 
-  const vidsrcUrl = servers.length ? servers[0].url : null;
+  const vidsrcUrl = servers.length ? (servers[0].url || null) : null;
   const detailPath = d.detailPath || '';
   const aoneUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
 
