@@ -100,17 +100,43 @@ app.get('/proxy/live', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/live`));
 }));
 
-// ===== WATCH INFO — extracts playable URLs from rich-detail =====
+// ===== WATCH INFO — extracts playable URLs from rich-detail + stream API =====
 app.get('/proxy/watch', wrap(async (req, res) => {
   const { subjectId } = req.query;
   if (!subjectId) return res.json({ success: false, error: 'Missing subjectId' });
 
-  const detail = await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`);
+  const [detail, streamData] = await Promise.all([
+    proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`),
+    proxyFetch(`${API_BASE}/bff/stream?subjectId=${subjectId}`),
+  ]);
+
   const d = detail?.data;
   if (!d) return res.json({ success: false, error: 'Could not fetch detail' });
 
   const detailPath = d.detailPath || '';
   const embedUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
+
+  // Extract direct stream URLs from the stream API response
+  const sd = streamData?.data || streamData;
+  const rawStreams =
+    sd?.streamList ||
+    sd?.streams ||
+    sd?.sources ||
+    (sd?.url ? [{ url: sd.url, quality: 'Default' }] : []);
+
+  const streams = rawStreams
+    .filter(s => s?.url)
+    .map(s => ({
+      url: `/proxy/video?url=${encodeURIComponent(s.url)}`,
+      quality: s.quality || s.resolution || s.label || 'Default',
+      raw: s.url,
+    }))
+    .filter(s => {
+      try {
+        const host = new URL(s.raw).hostname;
+        return ALLOWED_CDN.includes(host);
+      } catch { return false; }
+    });
 
   // Build dub/audio track list
   const tracks = (d.dubs || []).map(dub => ({
@@ -128,6 +154,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     trailerCover: d.trailerCover || null,
     embedUrl,
     detailPath,
+    streams,
     tracks,
     isShow: d.subjectType === 2,
   });

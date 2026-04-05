@@ -778,7 +778,8 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  const { embedUrl, trailerUrl, tracks } = watchData;
+  const { embedUrl, trailerUrl, streams, tracks } = watchData;
+  const iframeUrl = embedUrl;
 
   // Build audio/language track buttons
   const trackBtns = tracks && tracks.length > 1
@@ -788,35 +789,82 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
        </div>`
     : '';
 
-  // Primary: iframe embed of the aOneRoom player
-  if (embedUrl) {
+  // Primary: direct CDN stream URLs (actual movie content)
+  if (streams && streams.length) {
+    const first = streams[0];
+    const qualityBtns = streams.length > 1
+      ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Quality</div>
+         <div class="player-streams">
+           ${streams.map((s, i) => `<button class="stream-btn${i===0?' active':''}" onclick="switchStream('${esc(s.url)}',this)">${esc(s.quality)}</button>`).join('')}
+         </div>`
+      : '';
+
+    body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+      style="width:100%;max-height:62vh;display:block;background:#000">
+      <source src="${esc(first.url)}" type="video/mp4" />
+    </video>`;
+
+    info.innerHTML = `
+      ${trackBtns}
+      ${qualityBtns}
+      ${iframeUrl ? `
+      <div class="player-trailer-bar">
+        <span style="font-size:12px;color:var(--text3)">Having issues?</span>
+        <button class="stream-btn" onclick="switchToEmbed('${esc(iframeUrl)}')">▶ Try Embed Player</button>
+        ${trailerUrl ? `<button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">▶ Watch Trailer</button>` : ''}
+      </div>` : trailerUrl ? `
+      <div class="player-trailer-bar">
+        <button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">▶ Watch Trailer</button>
+      </div>` : ''}`;
+    return;
+  }
+
+  // Secondary: iframe embed of the aOneRoom player
+  if (iframeUrl) {
     body.innerHTML = `
-      <div class="player-iframe-wrap">
+      <div class="player-iframe-wrap" style="position:relative">
+        <div id="iframeBlockedMsg" style="display:none;position:absolute;inset:0;background:#0d1117;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:2">
+          <div style="font-size:36px">🎬</div>
+          <div style="color:var(--text1);font-weight:700;font-size:18px">Player blocked by browser</div>
+          <div style="color:var(--text3);font-size:13px;max-width:340px;text-align:center">Your browser prevented embedding this player. Open the movie directly to watch it.</div>
+          <a class="btn-play" href="${iframeUrl}" target="_blank" rel="noopener" style="display:inline-flex;text-decoration:none">
+            <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            Watch Movie Now
+          </a>
+        </div>
         <iframe id="embedPlayer"
-          src="${embedUrl}"
+          src="${iframeUrl}"
           allowfullscreen
           allow="autoplay; fullscreen; picture-in-picture"
-          referrerpolicy="no-referrer"
           style="width:100%;height:62vh;border:none;display:block;background:#000">
         </iframe>
       </div>`;
 
-    // Trailer fallback + track buttons in info area
+    // Auto-detect blocked iframe: if contentDocument is null after load, iframe was blocked
+    setTimeout(() => {
+      const iframe = document.getElementById('embedPlayer');
+      const msg = document.getElementById('iframeBlockedMsg');
+      if (!iframe || !msg) return;
+      try {
+        const doc = iframe.contentDocument;
+        // null contentDocument means X-Frame-Options blocked the embed
+        if (doc === null) {
+          msg.style.display = 'flex';
+          iframe.style.display = 'none';
+        }
+      } catch (e) {
+        // SecurityError = cross-origin but loaded successfully — leave iframe visible
+      }
+    }, 3000);
+
     info.innerHTML = `
       ${trackBtns}
-      ${trailerUrl ? `
-      <div class="player-trailer-bar">
-        <span style="font-size:12px;color:var(--text3)">Can't see the player above?</span>
-        <button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">
-          ▶ Watch Trailer
-        </button>
-        <a class="stream-btn" href="${embedUrl}" target="_blank" rel="noopener">
-          ↗ Open in New Tab
+      <div class="player-trailer-bar" style="flex-wrap:wrap;gap:8px">
+        <a class="stream-btn" href="${embedUrl}" target="_blank" rel="noopener" style="font-weight:700;background:var(--ice);color:#000">
+          ↗ Open Movie in New Tab
         </a>
-      </div>` : `
-      <div class="player-trailer-bar">
-        <a class="stream-btn" href="${embedUrl}" target="_blank" rel="noopener">↗ Open in New Tab</a>
-      </div>`}`;
+        ${trailerUrl ? `<button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">▶ Watch Trailer</button>` : ''}
+      </div>`;
     return;
   }
 
@@ -829,7 +877,7 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     </video>`;
     info.innerHTML = `${trackBtns}
       <div class="player-trailer-bar">
-        <span style="font-size:12px;color:var(--text3)">Showing trailer preview</span>
+        <span style="font-size:12px;color:var(--text3)">Showing trailer — full stream unavailable</span>
       </div>`;
     return;
   }
@@ -861,6 +909,20 @@ window.switchToTrailer = function(encodedUrl, title) {
     style="width:100%;max-height:62vh;display:block;background:#000">
     <source src="${proxied}" type="video/mp4" />
   </video>`;
+};
+
+window.switchToEmbed = function(embedUrl) {
+  const body = document.getElementById('playerBody');
+  body.innerHTML = `
+    <div class="player-iframe-wrap">
+      <iframe id="embedPlayer"
+        src="${embedUrl}"
+        allowfullscreen
+        allow="autoplay; fullscreen; picture-in-picture"
+        referrerpolicy="no-referrer"
+        style="width:100%;height:62vh;border:none;display:block;background:#000">
+      </iframe>
+    </div>`;
 };
 
 window.switchStream = function(url, btn) {
