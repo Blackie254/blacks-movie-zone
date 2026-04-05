@@ -14,11 +14,30 @@ const BROWSER_HEADERS = {
   'Origin': 'https://www.aoneroom.com',
 };
 
+// ===== IN-MEMORY CACHE =====
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCached(key) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) { cache.delete(key); return null; }
+  return entry.data;
+}
+function setCache(key, data) {
+  cache.set(key, { data, ts: Date.now() });
+}
+
 async function proxyFetch(url) {
+  const cached = getCached(url);
+  if (cached) return cached;
   try {
     const res = await fetch(url, { headers: BROWSER_HEADERS });
     const text = await res.text();
-    try { return JSON.parse(text); } catch { return { success: false, error: 'Invalid response from upstream' }; }
+    let result;
+    try { result = JSON.parse(text); } catch { result = { success: false, error: 'Invalid response from upstream' }; }
+    if (result && !result.error) setCache(url, result);
+    return result;
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -181,6 +200,10 @@ async function getImdbId(title, releaseDate, isShow) {
     const year = releaseDate ? parseInt(releaseDate.split('-')[0]) : null;
     const firstChar = query[0];
     const url = `https://v2.sg.media-imdb.com/suggestion/${firstChar}/${encodeURIComponent(query)}.json`;
+    const cacheKey = `imdb:${query}:${year}`;
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' },
       signal: AbortSignal.timeout(5000),
@@ -189,38 +212,33 @@ async function getImdbId(title, releaseDate, isShow) {
     const results = data.d || [];
     const tvTypes = ['tvSeries', 'tvMiniSeries', 'tvShort', 'tvMovie'];
 
-    // 1. Exact title + year + correct type
     let match = results.find(r =>
       r.l?.toLowerCase() === title.toLowerCase() &&
       (!year || r.y === year) &&
       (isShow ? tvTypes.includes(r.qid) : r.qid === 'movie')
     );
-    // 2. Exact title + year (any type)
     if (!match && year) match = results.find(r => r.l?.toLowerCase() === title.toLowerCase() && r.y === year);
-    // 3. Exact title only
     if (!match) match = results.find(r => r.l?.toLowerCase() === title.toLowerCase());
-    // 4. First result
     if (!match) match = results[0];
 
-    return match?.id || null;
+    const id = match?.id || null;
+    setCache(cacheKey, id);
+    return id;
   } catch (_) {
     return null;
   }
 }
 
-// ===== WATCH INFO — extracts playable URLs from rich-detail =====
+// ===== WATCH INFO — builds embed server list including MovieBox & HydraHD =====
 app.get('/proxy/watch', wrap(async (req, res) => {
   const { subjectId } = req.query;
   if (!subjectId) return res.json({ success: false, error: 'Missing subjectId' });
 
   const detail = await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`);
-
   const d = detail?.data;
   if (!d) return res.json({ success: false, error: 'Could not fetch detail' });
 
   const isShow = d.subjectType === 2;
-
-  // Look up IMDb ID → build multiple embed server options
   const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
 
   let servers = [];
@@ -228,6 +246,8 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     if (isShow) {
       servers = [
         { label: 'Server 1', url: `https://player.videasy.net/tv/${imdbId}/1/1` },
+        { label: 'MovieBox', url: `https://moviesapi.club/tv/${imdbId}-1-1` },
+        { label: 'HydraHD', url: `https://hydrahd.cc/embed/tv/${imdbId}-1-1` },
         { label: 'Server 2', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=1&episode=1` },
         { label: 'Server 3', url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=1&episode=1` },
         { label: 'Server 4', url: `https://2embed.cc/embedtv/${imdbId}` },
@@ -235,6 +255,8 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     } else {
       servers = [
         { label: 'Server 1', url: `https://autoembed.co/movie/imdb/${imdbId}` },
+        { label: 'MovieBox', url: `https://moviesapi.club/movie/${imdbId}` },
+        { label: 'HydraHD', url: `https://hydrahd.cc/embed/movie/${imdbId}` },
         { label: 'Server 2', url: `https://player.videasy.net/movie/${imdbId}` },
         { label: 'Server 3', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
         { label: 'Server 4', url: `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` },
@@ -242,14 +264,10 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     }
   }
 
-  // Keep vidsrcUrl for backwards compatibility (first server or null)
   const vidsrcUrl = servers.length ? servers[0].url : null;
-
-  // aOneRoom embed as secondary fallback
   const detailPath = d.detailPath || '';
   const aoneUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
 
-  // Short CDN preview clip (trailer — not the full movie)
   let previewUrl = null;
   if (d.trailerUrl) {
     try {
@@ -260,7 +278,6 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     } catch (_) {}
   }
 
-  // Language / dub track list
   const tracks = (d.dubs || []).map(dub => ({
     subjectId: dub.subjectId,
     label: dub.lanName,

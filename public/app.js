@@ -26,7 +26,7 @@ function router() {
   if (page === 'staff' && id) return renderStaff(id);
   if (page === 'search') return renderSearch(new URLSearchParams(location.search).get('q') || '');
   if (page === 'movies') return renderBrowse(1);
-  if (page === 'shows') return renderBrowse(2);
+  if (page === 'shows') return renderShows();
   if (page === 'trending') return renderTrending();
   if (page === 'browse') return renderBrowse(0);
   if (page === 'live') return renderLive();
@@ -50,16 +50,32 @@ function highlightNav() {
 
 function clearHeroTimer() { clearInterval(heroTimer); heroTimer = null; }
 
-// ===== FETCH =====
+// ===== FETCH with client cache =====
+const apiCache = new Map();
+const API_CACHE_TTL = 3 * 60 * 1000;
+
 async function api(endpoint, params = {}) {
   const q = new URLSearchParams(params).toString();
   const url = `${API}/${endpoint}${q ? '?' + q : ''}`;
-  try { const r = await fetch(url); return r.json(); } catch { return { success: false }; }
+  const cKey = url;
+  const cached = apiCache.get(cKey);
+  if (cached && Date.now() - cached.ts < API_CACHE_TTL) return cached.data;
+  try {
+    const r = await fetch(url);
+    const data = await r.json();
+    if (data) apiCache.set(cKey, { data, ts: Date.now() });
+    return data;
+  } catch { return { success: false }; }
 }
 
 // ===== APP CONTAINER =====
 const app = document.getElementById('app');
-function setApp(html) { app.innerHTML = html; }
+function setApp(html) {
+  app.classList.remove('page-enter');
+  app.innerHTML = html;
+  void app.offsetWidth;
+  app.classList.add('page-enter');
+}
 
 // ===== TOAST =====
 window.toast = function(msg, type = 'info') {
@@ -143,7 +159,7 @@ function makeCard(item) {
   const poster = item.cover?.url;
   return `
   <div class="card" onclick="navigate('/detail/${item.subjectId}')" onmouseenter="prefetchStream('${item.subjectId}')">
-    <div style="position:relative;overflow:hidden">
+    <div class="card-img-wrap">
       ${poster
         ? `<img class="card-poster" src="${poster}" alt="${esc(item.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-poster-placeholder" style="display:none">🎬</div>`
         : `<div class="card-poster-placeholder">🎬</div>`}
@@ -172,7 +188,7 @@ function makeNtCard(item) {
   const path = item.path || item.detailPath || '';
   return `
   <div class="card" onclick="openNtDetail('${esc(path)}','${esc(title)}')">
-    <div style="position:relative;overflow:hidden">
+    <div class="card-img-wrap">
       ${poster
         ? `<img class="card-poster" src="${poster}" alt="${esc(title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-poster-placeholder" style="display:none">🎬</div>`
         : `<div class="card-poster-placeholder">🎬</div>`}
@@ -396,7 +412,7 @@ async function renderHome() {
   <div class="section"><div class="section-header"><h2 class="section-title">🔥 Trending Now</h2></div>${makeRow('trendRow', skeletonRow())}</div>
   <div class="section"><div class="section-header"><h2 class="section-title">🏆 Rankings</h2></div><div class="rank-tabs" id="rankTabs"></div>${makeRow('rankCards', skeletonRow())}</div>
   <div class="section" id="homeMoviesSection"><div class="section-header"><h2 class="section-title" id="homeMoviesTitle">🎬 Popular Movies</h2><a class="section-more" href="/movies" onclick="navigate('/movies');return false;">See All →</a></div>${makeRow('moviesRow', skeletonRow())}</div>
-  <div class="section" id="homeShowsSection"><div class="section-header"><h2 class="section-title" id="homeShowsTitle">📺 TV Shows</h2><a class="section-more" href="/shows" onclick="navigate('/shows');return false;">See All →</a></div>${makeRow('showsRow', skeletonRow())}</div>
+  <div class="section" id="homeShowsSection"><div class="section-header"><h2 class="section-title" id="homeShowsTitle">📺 Series &amp; Shows</h2><a class="section-more" href="/shows" onclick="navigate('/shows');return false;">See All →</a></div>${makeRow('showsRow', skeletonRow())}</div>
   <div class="section"><div class="section-header"><h2 class="section-title">🆕 New Arrivals</h2><a class="section-more" href="/new" onclick="navigate('/new');return false;">See All →</a></div>${makeRow('newRow', skeletonRow())}</div>
   ${renderFooter()}`);
 
@@ -448,7 +464,7 @@ window.setHomeGenre = async function(genre, el) {
   const movieTitle = document.getElementById('homeMoviesTitle');
   const showTitle = document.getElementById('homeShowsTitle');
   if (movieTitle) movieTitle.textContent = `🎬 ${genre ? genre + ' Movies' : 'Popular Movies'}`;
-  if (showTitle) showTitle.textContent = `📺 ${genre ? genre + ' TV Shows' : 'Popular TV Shows'}`;
+  if (showTitle) showTitle.textContent = `📺 ${genre ? genre + ' Series & Shows' : 'Series & Shows'}`;
 
   fill('moviesRow', skeletonRow());
   fill('showsRow', skeletonRow());
@@ -597,6 +613,68 @@ window.openLiveChannel = function(streamUrl, title, thumb) {
   </video>`;
 };
 
+// ===== SERIES & SHOWS PAGE =====
+const SHOW_GENRES = ['Drama','Action','Comedy','Thriller','Crime','Fantasy','Sci-Fi','Animation','Mystery','Romance','Horror','Documentary'];
+
+async function renderShows() {
+  setApp(`<div style="margin-top:64px">${heroHtml(6)}</div>
+
+  <div class="home-genre-bar">
+    <div class="home-genre-label">Browse Shows by Genre</div>
+    <div class="home-genre-pills" id="showGenrePills">
+      <span class="hg-pill active" onclick="setShowGenre('',this)">All Genres</span>
+      ${SHOW_GENRES.map(g => `<span class="hg-pill" onclick="setShowGenre('${g}',this)">${genreIcon(g)} ${g}</span>`).join('')}
+    </div>
+  </div>
+
+  <div class="section"><div class="section-header"><h2 class="section-title">🔥 Trending Shows</h2><a class="section-more" href="/browse" onclick="navigate('/browse');return false;">Browse All →</a></div>${makeRow('showsTrendRow', skeletonRow())}</div>
+  <div class="section" id="showsGenreSection"><div class="section-header"><h2 class="section-title" id="showsGenreTitle">🎭 Drama Series</h2></div>${makeRow('showsGenreRow', skeletonRow())}</div>
+  <div class="section"><div class="section-header"><h2 class="section-title">😂 Comedy Shows</h2></div>${makeRow('showsComedyRow', skeletonRow())}</div>
+  <div class="section"><div class="section-header"><h2 class="section-title">⚔️ Action &amp; Adventure</h2></div>${makeRow('showsActionRow', skeletonRow())}</div>
+  <div class="section"><div class="section-header"><h2 class="section-title">🔍 Crime &amp; Thriller</h2></div>${makeRow('showsCrimeRow', skeletonRow())}</div>
+  ${renderFooter()}`);
+
+  const [trending, drama, comedy, action, crime] = await Promise.all([
+    api('trending', { page: 0, perPage: 18 }),
+    api('browse', { subjectType: 2, genre: 'Drama', page: 1, perPage: 18 }),
+    api('browse', { subjectType: 2, genre: 'Comedy', page: 1, perPage: 18 }),
+    api('browse', { subjectType: 2, genre: 'Action', page: 1, perPage: 18 }),
+    api('browse', { subjectType: 2, genre: 'Crime', page: 1, perPage: 18 }),
+  ]);
+
+  const trendShows = (trending?.data?.subjectList || []).filter(x => x.subjectType === 2);
+  const dramaItems = drama?.data?.subjectList || drama?.data?.items || [];
+  const comedyItems = comedy?.data?.subjectList || comedy?.data?.items || [];
+  const actionItems = action?.data?.subjectList || action?.data?.items || [];
+  const crimeItems = crime?.data?.subjectList || crime?.data?.items || [];
+
+  // Hero uses drama shows for variety
+  const heroList = dramaItems.length ? dramaItems.slice(0, 6) : trendShows.slice(0, 6);
+  if (heroList.length) buildHero(heroList);
+
+  fill('showsTrendRow', trendShows.length ? trendShows.map(makeCard).join('') : dramaItems.slice(0, 10).map(makeCard).join(''));
+  fill('showsGenreRow', dramaItems.map(makeCard).join('') || emptyHtml('🎭', 'No drama shows found'));
+  fill('showsComedyRow', comedyItems.map(makeCard).join('') || emptyHtml('😂', 'No comedy shows found'));
+  fill('showsActionRow', actionItems.map(makeCard).join('') || emptyHtml('⚔️', 'No action shows found'));
+  fill('showsCrimeRow', crimeItems.map(makeCard).join('') || emptyHtml('🔍', 'No crime shows found'));
+}
+
+window.setShowGenre = async function(genre, el) {
+  document.querySelectorAll('#showGenrePills .hg-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+
+  const title = document.getElementById('showsGenreTitle');
+  if (title) title.textContent = genre ? `${genreIcon(genre)} ${genre} Series` : '🎭 All Shows';
+
+  fill('showsGenreRow', skeletonRow());
+
+  const params = { subjectType: 2, page: 1, perPage: 18 };
+  if (genre) params.genre = genre;
+  const data = await api('browse', params);
+  const items = data?.data?.subjectList || data?.data?.items || [];
+  fill('showsGenreRow', items.map(makeCard).join('') || emptyHtml('📺', `No ${genre || ''} shows found`));
+};
+
 // ===== STAFF / ACTOR PAGE =====
 async function renderStaff(staffId) {
   setApp(`<div class="spinner-wrap" style="min-height:80vh"><div class="spinner"></div></div>`);
@@ -660,7 +738,7 @@ async function renderStaff(staffId) {
   ${renderFooter()}`);
 }
 
-// ===== BROWSE / MOVIES / SHOWS =====
+// ===== BROWSE / MOVIES =====
 let bs = { type: 1, genre: '', country: '', page: 1 };
 
 async function renderBrowse(forceType = null) {
@@ -835,7 +913,7 @@ async function fetchSearch(reset) {
   if (lmw) lmw.style.display = items.length >= 24 ? 'flex' : 'none';
 }
 
-// ===== DETAIL (onstream-style watch page) =====
+// ===== DETAIL (watch page) =====
 async function renderDetail(id) {
   prefetchStream(id);
 
@@ -967,7 +1045,6 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow)
   }
 
   const { vidsrcUrl, aoneUrl, previewUrl, tracks } = watchData;
-
   const embedServers = watchData.servers && watchData.servers.length ? watchData.servers : (vidsrcUrl ? [{ label: 'Server 1', url: vidsrcUrl }] : []);
 
   if (embedServers.length) {
@@ -1162,7 +1239,6 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  // ── FALLBACK: no vidsrc (no IMDb ID found) — preview clip + aOneRoom link ──
   if (previewUrl) {
     body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
       style="width:100%;max-height:56vh;display:block;background:#000">
@@ -1226,7 +1302,6 @@ function playerError(msg, link) {
   </div>`;
 }
 
-
 document.getElementById('playerClose').onclick = () => {
   document.getElementById('playerOverlay').classList.remove('show');
   const vid = document.getElementById('videoPlayer');
@@ -1246,7 +1321,7 @@ function renderFooter() {
     <div class="footer-links">
       <a class="footer-link" href="/" onclick="navigate('/');return false;">Home</a>
       <a class="footer-link" href="/movies" onclick="navigate('/movies');return false;">Movies</a>
-      <a class="footer-link" href="/shows" onclick="navigate('/shows');return false;">TV Shows</a>
+      <a class="footer-link" href="/shows" onclick="navigate('/shows');return false;">Series &amp; Shows</a>
       <a class="footer-link" href="/trending" onclick="navigate('/trending');return false;">Trending</a>
       <a class="footer-link" href="/browse" onclick="navigate('/browse');return false;">Browse</a>
       <a class="footer-link" href="/live" onclick="navigate('/live');return false;">Live TV</a>
