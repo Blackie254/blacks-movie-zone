@@ -23,11 +23,14 @@ function router() {
   const id = parts[1];
 
   if (page === 'detail' && id) return renderDetail(id);
+  if (page === 'staff' && id) return renderStaff(id);
   if (page === 'search') return renderSearch(new URLSearchParams(location.search).get('q') || '');
   if (page === 'movies') return renderBrowse(1);
   if (page === 'shows') return renderBrowse(2);
   if (page === 'trending') return renderTrending();
   if (page === 'browse') return renderBrowse(0);
+  if (page === 'live') return renderLive();
+  if (page === 'new') return renderNewArrivals();
   return renderHome();
 }
 
@@ -161,6 +164,94 @@ function makeCard(item) {
   </div>`;
 }
 
+// Newtoxic card (different data shape)
+function makeNtCard(item) {
+  const title = item.title || item.name || 'Untitled';
+  const poster = item.poster || item.cover || item.thumbnail || '';
+  const year = item.year || item.releaseYear || '';
+  const path = item.path || item.detailPath || '';
+  return `
+  <div class="card" onclick="openNtDetail('${esc(path)}','${esc(title)}')">
+    <div style="position:relative;overflow:hidden">
+      ${poster
+        ? `<img class="card-poster" src="${poster}" alt="${esc(title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-poster-placeholder" style="display:none">🎬</div>`
+        : `<div class="card-poster-placeholder">🎬</div>`}
+      <span class="card-badge badge-new">New</span>
+      <div class="card-overlay">
+        <div class="card-play-btn">
+          <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <div class="card-title" title="${esc(title)}">${esc(title)}</div>
+      <div class="card-meta"><span>${year}</span></div>
+    </div>
+  </div>`;
+}
+
+window.openNtDetail = async function(path, title) {
+  if (!path) return;
+  const overlay = document.getElementById('playerOverlay');
+  const header  = document.getElementById('playerHeader');
+  const body    = document.getElementById('playerBody');
+  const info    = document.getElementById('playerInfo');
+  overlay.classList.add('show');
+  header.textContent = title;
+  info.innerHTML = '';
+  body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
+
+  const detail = await api('newtoxic/detail', { path });
+  const d = detail?.data || detail;
+  const files = d?.files || d?.fileList || [];
+  const filesPath = d?.path || d?.filesPath || '';
+
+  let fileList = files;
+  if (!fileList.length && filesPath) {
+    const fr = await api('newtoxic/files', { path: filesPath });
+    fileList = fr?.data?.files || fr?.files || [];
+  }
+
+  if (!fileList.length) {
+    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>No playable files found</h3></div>`;
+    return;
+  }
+
+  body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
+  const firstFid = fileList[0]?.fid || fileList[0]?.id;
+  if (!firstFid) {
+    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>Cannot resolve stream</h3></div>`;
+    return;
+  }
+
+  const resolved = await api('newtoxic/resolve', { fid: firstFid });
+  const streamUrl = resolved?.data?.url || resolved?.url;
+  if (!streamUrl) {
+    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>Stream not available</h3></div>`;
+    return;
+  }
+
+  body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+    style="width:100%;max-height:62vh;display:block;background:#000">
+    <source src="${esc(streamUrl)}" type="video/mp4" />
+  </video>`;
+
+  if (fileList.length > 1) {
+    info.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Episodes / Files</div>
+      <div class="player-streams">${fileList.map((f, i) => `<button class="stream-btn${i===0?' active':''}" onclick="loadNtFile('${f.fid||f.id}',this)">${esc(f.title||f.name||'Episode '+(i+1))}</button>`).join('')}</div>`;
+  }
+};
+
+window.loadNtFile = async function(fid, btn) {
+  document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const resolved = await api('newtoxic/resolve', { fid });
+  const url = resolved?.data?.url || resolved?.url;
+  if (!url) { toast('Could not load stream', 'error'); return; }
+  const vid = document.getElementById('videoPlayer');
+  if (vid) { vid.src = url; vid.play(); }
+};
+
 // ===== SKELETON CARDS =====
 function skeletonRow(n = 8) {
   return Array(n).fill(0).map(() => `
@@ -244,7 +335,6 @@ function applyHeroSlide(first) {
   el.querySelector('.hero-btn-info').onclick = () => navigate(`/detail/${item.subjectId}`);
   el.querySelectorAll('.hero-dot').forEach((d, i) => d.classList.toggle('active', i === heroSlideIndex));
 
-  // Prefetch stream for current hero item for instant play
   prefetchStream(item.subjectId);
 }
 
@@ -307,13 +397,15 @@ async function renderHome() {
   <div class="section"><div class="section-header"><h2 class="section-title">🏆 Rankings</h2></div><div class="rank-tabs" id="rankTabs"></div>${makeRow('rankCards', skeletonRow())}</div>
   <div class="section" id="homeMoviesSection"><div class="section-header"><h2 class="section-title" id="homeMoviesTitle">🎬 Popular Movies</h2><a class="section-more" href="/movies" onclick="navigate('/movies');return false;">See All →</a></div>${makeRow('moviesRow', skeletonRow())}</div>
   <div class="section" id="homeShowsSection"><div class="section-header"><h2 class="section-title" id="homeShowsTitle">📺 TV Shows</h2><a class="section-more" href="/shows" onclick="navigate('/shows');return false;">See All →</a></div>${makeRow('showsRow', skeletonRow())}</div>
+  <div class="section"><div class="section-header"><h2 class="section-title">🆕 New Arrivals</h2><a class="section-more" href="/new" onclick="navigate('/new');return false;">See All →</a></div>${makeRow('newRow', skeletonRow())}</div>
   ${renderFooter()}`);
 
-  const [trending, ranking, movies, shows] = await Promise.all([
+  const [trending, ranking, movies, shows, newArrivals] = await Promise.all([
     api('trending', { page: 0, perPage: 18 }),
     api('ranking'),
     api('browse', { subjectType: 1, genre: 'Action', page: 1, perPage: 18 }),
     api('browse', { subjectType: 2, genre: 'Drama', page: 1, perPage: 18 }),
+    api('newtoxic/latest', { page: 1 }),
   ]);
 
   const trendList = trending?.data?.subjectList || [];
@@ -321,6 +413,7 @@ async function renderHome() {
   const rankItems = ranking?.data?.subjectList || [];
   const mItems = movies?.data?.subjectList || movies?.data?.items || [];
   const sItems = shows?.data?.subjectList || shows?.data?.items || [];
+  const ntItems = newArrivals?.data?.list || newArrivals?.data?.items || newArrivals?.list || [];
 
   if (trendList.length) buildHero(trendList.slice(0, 6));
 
@@ -328,6 +421,7 @@ async function renderHome() {
   fill('rankCards', rankItems.slice(0, 18).map(makeCard).join(''));
   fill('moviesRow', mItems.map(makeCard).join('') || emptyHtml('🎬', 'No movies yet'));
   fill('showsRow', sItems.map(makeCard).join('') || emptyHtml('📺', 'No shows yet'));
+  fill('newRow', ntItems.length ? ntItems.map(makeNtCard).join('') : emptyHtml('🆕', 'No new arrivals'));
 
   const tabsEl = document.getElementById('rankTabs');
   if (tabsEl && rankTabs.length) {
@@ -396,11 +490,174 @@ async function renderTrending() {
 
   const data = await api('trending', { page: 0, perPage: 36 });
   const items = data?.data?.subjectList || [];
-  const gridEl = app.querySelector('.cards-grid');
-  if (gridEl) gridEl.outerHTML;
   app.querySelector('.section').innerHTML = items.length
     ? `<div class="cards-grid fade-in">${items.map(makeCard).join('')}</div>`
     : emptyHtml('🔥', 'Nothing trending right now');
+}
+
+// ===== NEW ARRIVALS (NewToxic) =====
+let ntPage = 1;
+
+async function renderNewArrivals() {
+  ntPage = 1;
+  setApp(`
+  <div class="page-header fade-up">
+    <h1 class="page-title">🆕 New Arrivals</h1>
+    <p class="page-subtitle">Fresh content added recently</p>
+  </div>
+  <div class="section">
+    <div id="ntGrid">${skeletonGrid()}</div>
+    <div class="load-more-wrap" id="ntMoreWrap" style="display:none">
+      <button class="load-more-btn" id="ntMoreBtn" onclick="loadMoreNt()">Load More</button>
+    </div>
+  </div>
+  ${renderFooter()}`);
+
+  await fetchNtLatest(true);
+}
+
+async function fetchNtLatest(reset) {
+  const grid = document.getElementById('ntGrid');
+  const lmw = document.getElementById('ntMoreWrap');
+  if (!grid) return;
+  if (reset) grid.innerHTML = skeletonGrid();
+
+  const data = await api('newtoxic/latest', { page: ntPage });
+  const items = data?.data?.list || data?.data?.items || data?.list || [];
+
+  if (reset) {
+    grid.innerHTML = items.length
+      ? `<div class="cards-grid fade-in">${items.map(makeNtCard).join('')}</div>`
+      : emptyHtml('🆕', 'No new arrivals found');
+  } else {
+    const cg = grid.querySelector('.cards-grid');
+    if (cg) cg.insertAdjacentHTML('beforeend', items.map(makeNtCard).join(''));
+  }
+  if (lmw) lmw.style.display = items.length >= 20 ? 'flex' : 'none';
+}
+
+window.loadMoreNt = async function() {
+  const btn = document.getElementById('ntMoreBtn');
+  if (btn) { btn.textContent = 'Loading...'; btn.disabled = true; }
+  ntPage++;
+  await fetchNtLatest(false);
+  if (btn) { btn.textContent = 'Load More'; btn.disabled = false; }
+};
+
+// ===== LIVE TV =====
+async function renderLive() {
+  setApp(`
+  <div class="page-header fade-up">
+    <h1 class="page-title">📡 Live TV</h1>
+    <p class="page-subtitle">Watch live channels now</p>
+  </div>
+  <div class="section" id="liveSection">
+    <div class="spinner-wrap" style="min-height:300px"><div class="spinner"></div></div>
+  </div>
+  ${renderFooter()}`);
+
+  const data = await api('live');
+  const channels = data?.data?.list || data?.data?.channels || data?.channels || data?.list || [];
+  const section = document.getElementById('liveSection');
+  if (!section) return;
+
+  if (!channels.length) {
+    section.innerHTML = emptyHtml('📡', 'No live channels available right now');
+    return;
+  }
+
+  section.innerHTML = `<div class="live-grid">${channels.map(ch => `
+    <div class="live-card" onclick="openLiveChannel('${esc(ch.streamUrl||ch.url||'')}','${esc(ch.title||ch.name||'Channel')}','${esc(ch.cover?.url||ch.logo||ch.thumbnail||'')}')">
+      <div class="live-thumb">
+        ${ch.cover?.url || ch.logo || ch.thumbnail
+          ? `<img src="${ch.cover?.url||ch.logo||ch.thumbnail}" alt="${esc(ch.title||ch.name)}" onerror="this.style.display='none'" loading="lazy" />`
+          : `<div class="live-thumb-placeholder">📡</div>`}
+        <span class="live-badge">● LIVE</span>
+      </div>
+      <div class="live-info">
+        <div class="live-title">${esc(ch.title||ch.name||'Channel')}</div>
+        ${ch.category ? `<div class="live-cat">${esc(ch.category)}</div>` : ''}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+window.openLiveChannel = function(streamUrl, title, thumb) {
+  if (!streamUrl) { toast('No stream URL for this channel', 'error'); return; }
+  const overlay = document.getElementById('playerOverlay');
+  const header  = document.getElementById('playerHeader');
+  const body    = document.getElementById('playerBody');
+  const info    = document.getElementById('playerInfo');
+  overlay.classList.add('show');
+  header.textContent = `📡 ${title}`;
+  info.innerHTML = '';
+  body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
+    style="width:100%;max-height:62vh;display:block;background:#000">
+    <source src="${esc(streamUrl)}" type="application/x-mpegURL" />
+    <source src="${esc(streamUrl)}" type="video/mp4" />
+  </video>`;
+};
+
+// ===== STAFF / ACTOR PAGE =====
+async function renderStaff(staffId) {
+  setApp(`<div class="spinner-wrap" style="min-height:80vh"><div class="spinner"></div></div>`);
+
+  const [detail, works, related] = await Promise.all([
+    api('staff/detail', { staffId }),
+    api('staff/works', { staffId, page: 1, perPage: 20 }),
+    api('staff/related', { staffId }),
+  ]);
+
+  const d = detail?.data;
+  if (!d) {
+    setApp(emptyHtml('⚠️', 'Could not load profile', 'Please try again later', true));
+    return;
+  }
+
+  const workItems = works?.data?.subjectList || works?.data?.list || [];
+  const relatedPeople = related?.data?.staffList || related?.data?.list || [];
+
+  setApp(`
+  <div class="staff-hero">
+    <div class="staff-hero-bg" style="background-image:url('${d.avatar?.url||d.avatarUrl||''}')"></div>
+    <div class="staff-hero-grad"></div>
+    <div class="staff-content">
+      <div class="staff-avatar">
+        ${d.avatar?.url || d.avatarUrl
+          ? `<img src="${d.avatar?.url||d.avatarUrl}" alt="${esc(d.name)}" />`
+          : `<div class="staff-avatar-placeholder">🎭</div>`}
+      </div>
+      <div class="staff-info">
+        <h1 class="staff-name">${esc(d.name)}</h1>
+        <div class="detail-badges" style="margin-top:12px">
+          ${d.birthDate ? `<span class="detail-badge db-year">🎂 ${d.birthDate}</span>` : ''}
+          ${d.birthPlace ? `<span class="detail-badge db-country">📍 ${esc(d.birthPlace)}</span>` : ''}
+          ${d.nationality ? `<span class="detail-badge db-type">${esc(d.nationality)}</span>` : ''}
+        </div>
+        ${d.description ? `<p class="detail-desc" style="margin-top:16px">${esc(d.description)}</p>` : ''}
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-body">
+    ${workItems.length ? `
+    <div class="section">
+      <div class="section-header"><h3 class="section-title">🎬 Known For</h3></div>
+      ${makeRow('staffWorksRow', workItems.map(makeCard).join(''))}
+    </div>` : ''}
+
+    ${relatedPeople.length ? `
+    <div class="section">
+      <div class="section-header"><h3 class="section-title">👥 Related People</h3></div>
+      <div class="cast-row">${relatedPeople.map(p => `
+        <div class="cast-card" onclick="navigate('/staff/${p.staffId}')">
+          <img class="cast-avatar" src="${p.avatar?.url||p.avatarUrl||''}" alt="${esc(p.name)}" onerror="this.style.opacity='0'" loading="lazy" />
+          <div class="cast-name">${esc(p.name)}</div>
+          <div class="cast-role">${esc(p.role||p.character||'')}</div>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+  </div>
+  ${renderFooter()}`);
 }
 
 // ===== BROWSE / MOVIES / SHOWS =====
@@ -580,7 +837,6 @@ async function fetchSearch(reset) {
 
 // ===== DETAIL =====
 async function renderDetail(id) {
-  // Start pre-fetching the stream immediately while the page loads
   prefetchStream(id);
 
   setApp(`<div class="spinner-wrap" style="min-height:80vh"><div class="spinner"></div></div>`);
@@ -606,7 +862,6 @@ async function renderDetail(id) {
   const seasons = d.seasonList || d.seasons || [];
   const cast = d.staffList || [];
 
-  // Check if stream is already cached for instant-play indicator
   const streamReady = streamCache.has(id);
 
   setApp(`
@@ -648,7 +903,7 @@ async function renderDetail(id) {
       <div class="section-header"><h3 class="section-title">Cast &amp; Crew</h3></div>
       <div class="cast-row">
         ${cast.map(p => `
-        <div class="cast-card">
+        <div class="cast-card" onclick="navigate('/staff/${p.staffId}')" style="cursor:pointer">
           <img class="cast-avatar" src="${p.avatar?.url || p.avatarUrl || ''}" alt="${esc(p.name)}" onerror="this.style.opacity='0'" loading="lazy" />
           <div class="cast-name">${esc(p.name)}</div>
           <div class="cast-role">${esc(p.role || p.character || '')}</div>
@@ -689,16 +944,6 @@ async function renderDetail(id) {
   if (isShow && seasons.length) {
     loadSeasonEpisodes(id, seasons[0].seasonId || seasons[0].id || id);
   }
-
-  // Update play button once stream is ready
-  if (!streamReady && streamCache.has(id)) {
-    streamCache.get(id).then(() => {
-      const btn = document.getElementById('mainPlayBtn');
-      if (btn && !btn.querySelector('.play-ready-dot')) {
-        btn.insertAdjacentHTML('beforeend', '<span class="play-ready-dot"></span>');
-      }
-    });
-  }
 }
 
 window.loadSeason = function(subjectId, seasonId, btn) {
@@ -729,7 +974,6 @@ async function loadSeasonEpisodes(subjectId, seasonId) {
 }
 
 // ===== PLAYER =====
-// ===== WATCH CACHE — pre-fetch & remember results =====
 const streamCache = new Map();
 
 function prefetchStream(subjectId) {
@@ -737,9 +981,7 @@ function prefetchStream(subjectId) {
   streamCache.set(subjectId, fetch(`/proxy/watch?subjectId=${subjectId}`).then(r => r.json()));
 }
 
-// Expose globally so cards can call it on hover
 window.prefetchStream = prefetchStream;
-
 window.openPlayerEpisode = (id, title) => openPlayer(id, title, false);
 
 window.openPlayer = async function(subjectId, title) {
@@ -751,14 +993,9 @@ window.openPlayer = async function(subjectId, title) {
   overlay.classList.add('show');
   header.textContent = title;
   info.innerHTML = '';
-
-  // Show loading bar immediately
   body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
 
-  // Use cached fetch if available, else fetch now
-  if (!streamCache.has(subjectId)) {
-    prefetchStream(subjectId);
-  }
+  if (!streamCache.has(subjectId)) prefetchStream(subjectId);
 
   const watchData = await streamCache.get(subjectId);
   renderPlayerContent(body, info, subjectId, title, watchData);
@@ -778,8 +1015,8 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  const { embedUrl, trailerUrl, streams, tracks } = watchData;
-  const iframeUrl = embedUrl;
+  const { embedUrl, trailerUrl, streams, showboxStreams, tracks } = watchData;
+  const allStreams = [...(streams || []), ...(showboxStreams || []).map(s => ({ ...s, label: `[SB] ${s.quality}` }))];
 
   // Build audio/language track buttons
   const trackBtns = tracks && tracks.length > 1
@@ -789,28 +1026,28 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
        </div>`
     : '';
 
-  // Primary: direct CDN stream URLs (actual movie content)
-  if (streams && streams.length) {
-    const first = streams[0];
-    const qualityBtns = streams.length > 1
-      ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Quality</div>
+  if (allStreams.length) {
+    const first = allStreams[0];
+    const videoSrc = first.url || first.link || '';
+    const qualityBtns = allStreams.length > 1
+      ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Quality / Source</div>
          <div class="player-streams">
-           ${streams.map((s, i) => `<button class="stream-btn${i===0?' active':''}" onclick="switchStream('${esc(s.url)}',this)">${esc(s.quality)}</button>`).join('')}
+           ${allStreams.map((s, i) => `<button class="stream-btn${i===0?' active':''}" onclick="switchStream('${esc(s.url||s.link||'')}',this)">${esc(s.label||s.quality||'HD')}</button>`).join('')}
          </div>`
       : '';
 
     body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
       style="width:100%;max-height:62vh;display:block;background:#000">
-      <source src="${esc(first.url)}" type="video/mp4" />
+      <source src="${esc(videoSrc)}" type="video/mp4" />
     </video>`;
 
     info.innerHTML = `
       ${trackBtns}
       ${qualityBtns}
-      ${iframeUrl ? `
+      ${embedUrl ? `
       <div class="player-trailer-bar">
         <span style="font-size:12px;color:var(--text3)">Having issues?</span>
-        <button class="stream-btn" onclick="switchToEmbed('${esc(iframeUrl)}')">▶ Try Embed Player</button>
+        <button class="stream-btn" onclick="switchToEmbed('${esc(embedUrl)}')">▶ Try Embed Player</button>
         ${trailerUrl ? `<button class="stream-btn" onclick="switchToTrailer('${encodeURIComponent(trailerUrl)}','${esc(title)}')">▶ Watch Trailer</button>` : ''}
       </div>` : trailerUrl ? `
       <div class="player-trailer-bar">
@@ -819,42 +1056,34 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  // Secondary: iframe embed of the aOneRoom player
-  if (iframeUrl) {
+  if (embedUrl) {
     body.innerHTML = `
       <div class="player-iframe-wrap" style="position:relative">
         <div id="iframeBlockedMsg" style="display:none;position:absolute;inset:0;background:#0d1117;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:2">
           <div style="font-size:36px">🎬</div>
           <div style="color:var(--text1);font-weight:700;font-size:18px">Player blocked by browser</div>
           <div style="color:var(--text3);font-size:13px;max-width:340px;text-align:center">Your browser prevented embedding this player. Open the movie directly to watch it.</div>
-          <a class="btn-play" href="${iframeUrl}" target="_blank" rel="noopener" style="display:inline-flex;text-decoration:none">
+          <a class="btn-play" href="${embedUrl}" target="_blank" rel="noopener" style="display:inline-flex;text-decoration:none">
             <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             Watch Movie Now
           </a>
         </div>
         <iframe id="embedPlayer"
-          src="${iframeUrl}"
+          src="${embedUrl}"
           allowfullscreen
           allow="autoplay; fullscreen; picture-in-picture"
           style="width:100%;height:62vh;border:none;display:block;background:#000">
         </iframe>
       </div>`;
 
-    // Auto-detect blocked iframe: if contentDocument is null after load, iframe was blocked
     setTimeout(() => {
       const iframe = document.getElementById('embedPlayer');
       const msg = document.getElementById('iframeBlockedMsg');
       if (!iframe || !msg) return;
       try {
         const doc = iframe.contentDocument;
-        // null contentDocument means X-Frame-Options blocked the embed
-        if (doc === null) {
-          msg.style.display = 'flex';
-          iframe.style.display = 'none';
-        }
-      } catch (e) {
-        // SecurityError = cross-origin but loaded successfully — leave iframe visible
-      }
+        if (doc === null) { msg.style.display = 'flex'; iframe.style.display = 'none'; }
+      } catch (_) {}
     }, 3000);
 
     info.innerHTML = `
@@ -868,7 +1097,6 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  // Fallback: direct trailer video
   if (trailerUrl) {
     const proxied = `/proxy/video?url=${encodeURIComponent(trailerUrl)}`;
     body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline
@@ -882,7 +1110,6 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  // Nothing available
   body.innerHTML = `<div class="player-error">
     <div class="icon">🎬</div>
     <h3>No stream available</h3>
@@ -954,6 +1181,8 @@ function renderFooter() {
       <a class="footer-link" href="/shows" onclick="navigate('/shows');return false;">TV Shows</a>
       <a class="footer-link" href="/trending" onclick="navigate('/trending');return false;">Trending</a>
       <a class="footer-link" href="/browse" onclick="navigate('/browse');return false;">Browse</a>
+      <a class="footer-link" href="/live" onclick="navigate('/live');return false;">Live TV</a>
+      <a class="footer-link" href="/new" onclick="navigate('/new');return false;">New Arrivals</a>
     </div>
     <span class="footer-copy">© 2026 BlueBlizzard FreeFlix</span>
   </footer>`;

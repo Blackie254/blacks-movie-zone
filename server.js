@@ -32,6 +32,7 @@ function wrap(fn) {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ===== CORE ENDPOINTS =====
 app.get('/proxy/trending', wrap(async (req, res) => {
   const { page = 0, perPage = 18 } = req.query;
   res.json(await proxyFetch(`${API_BASE}/trending?page=${page}&perPage=${perPage}`));
@@ -100,7 +101,79 @@ app.get('/proxy/live', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/live`));
 }));
 
-// ===== WATCH INFO — extracts playable URLs from rich-detail + stream API =====
+// ===== STAFF / ACTOR ENDPOINTS =====
+app.get('/proxy/staff/detail', wrap(async (req, res) => {
+  const { staffId } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/staff/detail?staffId=${staffId}`));
+}));
+
+app.get('/proxy/staff/works', wrap(async (req, res) => {
+  const { staffId, page = 1, perPage = 20 } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/staff/works?staffId=${staffId}&page=${page}&perPage=${perPage}`));
+}));
+
+app.get('/proxy/staff/related', wrap(async (req, res) => {
+  const { staffId } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/staff/related?staffId=${staffId}`));
+}));
+
+// ===== SHOWBOX ENDPOINTS =====
+app.get('/proxy/showbox/search', wrap(async (req, res) => {
+  const { keyword, type = 'movie', pagelimit = 5 } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/showbox/search?keyword=${encodeURIComponent(keyword)}&type=${type}&pagelimit=${pagelimit}`));
+}));
+
+app.get('/proxy/showbox/movie', wrap(async (req, res) => {
+  const { id } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/showbox/movie?id=${id}`));
+}));
+
+app.get('/proxy/showbox/tv', wrap(async (req, res) => {
+  const { id } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/showbox/tv?id=${id}`));
+}));
+
+app.get('/proxy/showbox/streams', wrap(async (req, res) => {
+  const { id } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/showbox/streams?id=${id}`));
+}));
+
+app.get('/proxy/showbox/stream', wrap(async (req, res) => {
+  const { id, type = 'movie' } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/stream?id=${id}&type=${type}`));
+}));
+
+// ===== NEWTOXIC ENDPOINTS =====
+app.get('/proxy/newtoxic/search', wrap(async (req, res) => {
+  const { keyword } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/newtoxic/search?keyword=${encodeURIComponent(keyword)}`));
+}));
+
+app.get('/proxy/newtoxic/latest', wrap(async (req, res) => {
+  const { page = 1 } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/newtoxic/latest?page=${page}`));
+}));
+
+app.get('/proxy/newtoxic/featured', wrap(async (req, res) => {
+  res.json(await proxyFetch(`${API_BASE}/newtoxic/featured`));
+}));
+
+app.get('/proxy/newtoxic/detail', wrap(async (req, res) => {
+  const { path: p } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/newtoxic/detail?path=${encodeURIComponent(p)}`));
+}));
+
+app.get('/proxy/newtoxic/files', wrap(async (req, res) => {
+  const { path: p } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/newtoxic/files?path=${encodeURIComponent(p)}`));
+}));
+
+app.get('/proxy/newtoxic/resolve', wrap(async (req, res) => {
+  const { fid } = req.query;
+  res.json(await proxyFetch(`${API_BASE}/newtoxic/resolve?fid=${fid}`));
+}));
+
+// ===== WATCH INFO — extracts playable URLs, falls back to ShowBox =====
 app.get('/proxy/watch', wrap(async (req, res) => {
   const { subjectId } = req.query;
   if (!subjectId) return res.json({ success: false, error: 'Missing subjectId' });
@@ -124,7 +197,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     sd?.sources ||
     (sd?.url ? [{ url: sd.url, quality: 'Default' }] : []);
 
-  const streams = rawStreams
+  let streams = rawStreams
     .filter(s => s?.url)
     .map(s => ({
       url: `/proxy/video?url=${encodeURIComponent(s.url)}`,
@@ -137,6 +210,37 @@ app.get('/proxy/watch', wrap(async (req, res) => {
         return ALLOWED_CDN.includes(host);
       } catch { return false; }
     });
+
+  // ===== SHOWBOX FALLBACK — try to find streams if main API has none =====
+  let showboxStreams = [];
+  if (streams.length === 0 && d.title) {
+    try {
+      const isShow = d.subjectType === 2;
+      const sbSearch = await proxyFetch(
+        `${API_BASE}/showbox/search?keyword=${encodeURIComponent(d.title)}&type=${isShow ? 'tv' : 'movie'}&pagelimit=3`
+      );
+      const sbItems = sbSearch?.data?.list || sbSearch?.list || sbSearch?.results || [];
+      if (sbItems.length) {
+        const sbId = sbItems[0].id || sbItems[0].showbox_id;
+        if (sbId) {
+          const sbStreams = await proxyFetch(`${API_BASE}/showbox/streams?id=${sbId}`);
+          const rawSb =
+            sbStreams?.data?.list ||
+            sbStreams?.data?.streams ||
+            sbStreams?.streams ||
+            sbStreams?.list ||
+            [];
+          showboxStreams = rawSb
+            .filter(s => s?.url || s?.link)
+            .map(s => ({
+              url: s.url || s.link,
+              quality: s.quality || s.resolution || s.label || 'HD',
+              source: 'ShowBox',
+            }));
+        }
+      }
+    } catch (_) {}
+  }
 
   // Build dub/audio track list
   const tracks = (d.dubs || []).map(dub => ({
@@ -155,6 +259,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     embedUrl,
     detailPath,
     streams,
+    showboxStreams,
     tracks,
     isShow: d.subjectType === 2,
   });

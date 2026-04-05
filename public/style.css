@@ -499,3 +499,30 @@ footer { margin-top: 64px; padding: 40px 56px; background: var(--bg2); border-to
   .card { flex: 0 0 130px; width: 130px; }
   .cards-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
 }
+
+/* ===== STAFF / ACTOR PAGE ===== */
+.staff-hero { position: relative; min-height: 340px; display: flex; align-items: flex-end; overflow: hidden; }
+.staff-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center top; filter: blur(18px) brightness(0.35); transform: scale(1.08); }
+.staff-hero-grad { position: absolute; inset: 0; background: linear-gradient(to top, var(--bg) 0%, rgba(8,12,20,0.6) 60%, transparent 100%); }
+.staff-content { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: 32px; padding: 48px 48px 40px; width: 100%; }
+.staff-avatar { flex: 0 0 160px; width: 160px; border-radius: 50%; overflow: hidden; border: 3px solid var(--blue); box-shadow: 0 0 30px var(--glow); }
+.staff-avatar img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.staff-avatar-placeholder { width: 160px; height: 160px; background: var(--bg3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 48px; }
+.staff-name { font-size: 36px; font-weight: 800; line-height: 1.15; }
+@media (max-width: 768px) {
+  .staff-content { flex-direction: column; padding: 28px 22px 24px; align-items: flex-start; gap: 16px; }
+  .staff-avatar { width: 100px; flex: 0 0 100px; }
+  .staff-name { font-size: 24px; }
+}
+
+/* ===== LIVE TV ===== */
+.live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
+.live-card { background: var(--card); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+.live-card:hover { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,0.45); }
+.live-thumb { position: relative; aspect-ratio: 16/9; overflow: hidden; background: var(--bg3); }
+.live-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.live-thumb-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+.live-badge { position: absolute; top: 8px; left: 8px; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px; }
+.live-info { padding: 10px 12px 12px; }
+.live-title { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-cat { font-size: 11px; color: var(--text3); margin-top: 3px; }
