@@ -638,6 +638,9 @@ footer {
 }
 .stream-btn:hover { color: var(--text); border-color: var(--primary); }
 .stream-btn.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 3px 14px rgba(108,99,255,0.4); }
+.srv-badge { font-size: 9px; font-weight: 700; background: rgba(255,255,255,0.18); color: inherit; border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; letter-spacing: 0.5px; }
+.watch-srv-btn .srv-badge { background: rgba(255,255,255,0.18); }
+.watch-srv-btn.active .srv-badge { background: rgba(255,255,255,0.25); }
 .player-error { padding: 52px 32px; text-align: center; color: var(--text2); }
 .player-error .icon { font-size: 52px; margin-bottom: 18px; }
 .player-error h3 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
