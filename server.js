@@ -200,37 +200,53 @@ app.get('/proxy/newtoxic/resolve', wrap(async (req, res) => {
 }));
 
 // ===== IMDb ID lookup (fast) =====
+function cleanTitleForImdb(title) {
+  // Strip everything after | · — to get the primary title only
+  return (title || '').split(/[|·—]/)[0].trim();
+}
+
 async function getImdbId(title, releaseDate, isShow) {
   try {
-    const query = (title || '').toLowerCase().trim();
-    if (!query) return null;
+    const rawTitle = (title || '').trim();
+    if (!rawTitle) return null;
+    const cleanTitle = cleanTitleForImdb(rawTitle);
     const year = releaseDate ? parseInt(releaseDate.split('-')[0]) : null;
-    const firstChar = query[0];
-    const url = `https://v2.sg.media-imdb.com/suggestion/${firstChar}/${encodeURIComponent(query)}.json`;
-    const cacheKey = `imdb:${query}:${year}`;
+    const cacheKey = `imdb:${cleanTitle.toLowerCase()}:${year}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' },
-      signal: AbortSignal.timeout(5000),
-    });
-    const data = await res.json();
-    const results = data.d || [];
-    const tvTypes = ['tvSeries', 'tvMiniSeries', 'tvShort', 'tvMovie'];
+    // Try clean title first, then raw title as fallback
+    for (const query of [cleanTitle, rawTitle]) {
+      if (!query) continue;
+      const firstChar = query[0].toLowerCase();
+      const url = `https://v2.sg.media-imdb.com/suggestion/${firstChar}/${encodeURIComponent(query)}.json`;
+      try {
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' },
+          signal: AbortSignal.timeout(5000),
+        });
+        const data = await res.json();
+        const results = data.d || [];
+        if (!results.length) continue;
+        const tvTypes = ['tvSeries', 'tvMiniSeries', 'tvShort', 'tvMovie'];
+        const ql = query.toLowerCase();
 
-    let match = results.find(r =>
-      r.l?.toLowerCase() === title.toLowerCase() &&
-      (!year || r.y === year) &&
-      (isShow ? tvTypes.includes(r.qid) : r.qid === 'movie')
-    );
-    if (!match && year) match = results.find(r => r.l?.toLowerCase() === title.toLowerCase() && r.y === year);
-    if (!match) match = results.find(r => r.l?.toLowerCase() === title.toLowerCase());
-    if (!match) match = results[0];
+        let match = results.find(r =>
+          r.l?.toLowerCase() === ql &&
+          (!year || r.y === year) &&
+          (isShow ? tvTypes.includes(r.qid) : r.qid === 'movie')
+        );
+        if (!match && year) match = results.find(r => r.l?.toLowerCase() === ql && r.y === year);
+        if (!match) match = results.find(r => r.l?.toLowerCase() === ql);
+        if (!match && year) match = results.find(r => Math.abs((r.y || 0) - year) <= 1);
+        if (!match) match = results[0];
 
-    const id = match?.id || null;
-    setCache(cacheKey, id);
-    return id;
+        const id = match?.id || null;
+        if (id) { setCache(cacheKey, id); return id; }
+      } catch (_) {}
+    }
+    setCache(cacheKey, null);
+    return null;
   } catch (_) {
     return null;
   }
@@ -358,7 +374,15 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
 
   // Build servers from reliable embed providers
-  const servers = buildEmbedServers(imdbId, isShow, s, e);
+  let servers = buildEmbedServers(imdbId, isShow, s, e);
+
+  const detailPath = d.detailPath || '';
+  const aoneUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
+
+  // If no IMDb ID found, fall back to Blizzflix Direct (aoneroom) if available
+  if (!servers.length && aoneUrl) {
+    servers = [{ label: 'Blizzflix Direct', type: 'embed', badge: 'HD', url: aoneUrl }];
+  }
 
   let previewUrl = null;
   if (d.trailerUrl) {
@@ -376,9 +400,6 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     detailPath: dub.detailPath,
     original: dub.original,
   }));
-
-  const detailPath = d.detailPath || '';
-  const aoneUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
 
   res.json({
     success: true,
