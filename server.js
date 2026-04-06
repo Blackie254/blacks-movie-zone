@@ -242,25 +242,27 @@ function buildEmbedServers(imdbId, isShow, s, e) {
 
   if (isShow) {
     return [
-      { label: 'Server 1',  type: 'embed', badge: 'HD', url: `https://vidsrc.to/embed/tv/${imdbId}/${s}/${e}` },
-      { label: 'Server 2',  type: 'embed', badge: 'HD', url: `https://player.videasy.net/tv/${imdbId}/${s}/${e}` },
-      { label: 'Server 3',  type: 'embed', badge: '4K', url: `https://embed.su/embed/tv/${imdbId}/${s}/${e}` },
-      { label: 'Server 4',  type: 'embed', badge: 'HD', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=${s}&episode=${e}` },
-      { label: 'Server 5',  type: 'embed', badge: 'HD', url: `https://moviesapi.club/tv/${imdbId}-${s}-${e}` },
-      { label: 'Server 6',  type: 'embed', badge: 'HD', url: `https://2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` },
-      { label: 'Server 7',  type: 'embed', badge: 'HD', url: `https://multiembed.mov/?video_id=${imdbId}&imdb=1&s=${s}&e=${e}` },
-      { label: 'Server 8',  type: 'embed', badge: 'HD', url: `https://player.smashy.stream/tv/${imdbId}?s=${s}&e=${e}` },
+      { label: 'Blizzflix 1',       type: 'embed', badge: 'HD', url: `https://vidsrc.to/embed/tv/${imdbId}/${s}/${e}` },
+      { label: 'Blizzflix 2',       type: 'embed', badge: 'HD', url: `https://player.videasy.net/tv/${imdbId}/${s}/${e}` },
+      { label: 'Blizzflix 3',       type: 'embed', badge: '4K', url: `https://embed.su/embed/tv/${imdbId}/${s}/${e}` },
+      { label: 'Blizzflix 4',       type: 'embed', badge: 'HD', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=${s}&episode=${e}` },
+      { label: 'Blizzflix 5',       type: 'embed', badge: 'HD', url: `https://moviesapi.club/tv/${imdbId}-${s}-${e}` },
+      { label: 'Blizzflix 6',       type: 'embed', badge: 'HD', url: `https://2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` },
+      { label: 'Blizzflix 7',       type: 'embed', badge: 'HD', url: `https://multiembed.mov/?video_id=${imdbId}&imdb=1&s=${s}&e=${e}` },
+      { label: 'Blizzflix 8',       type: 'embed', badge: 'HD', url: `https://player.smashy.stream/tv/${imdbId}?s=${s}&e=${e}` },
+      { label: 'Blizzflix Moviebox', type: 'embed', badge: 'HD', url: `https://moviesbox.net/tv/${imdbId}/${s}/${e}` },
     ];
   } else {
     return [
-      { label: 'Server 1',  type: 'embed', badge: 'HD', url: `https://vidsrc.to/embed/movie/${imdbId}` },
-      { label: 'Server 2',  type: 'embed', badge: 'HD', url: `https://player.videasy.net/movie/${imdbId}` },
-      { label: 'Server 3',  type: 'embed', badge: '4K', url: `https://embed.su/embed/movie/${imdbId}` },
-      { label: 'Server 4',  type: 'embed', badge: 'HD', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
-      { label: 'Server 5',  type: 'embed', badge: 'HD', url: `https://moviesapi.club/movie/${imdbId}` },
-      { label: 'Server 6',  type: 'embed', badge: 'HD', url: `https://2embed.cc/embed/${imdbId}` },
-      { label: 'Server 7',  type: 'embed', badge: 'HD', url: `https://multiembed.mov/?video_id=${imdbId}&imdb=1` },
-      { label: 'Server 8',  type: 'embed', badge: 'HD', url: `https://player.smashy.stream/movie/${imdbId}` },
+      { label: 'Blizzflix 1',       type: 'embed', badge: 'HD', url: `https://vidsrc.to/embed/movie/${imdbId}` },
+      { label: 'Blizzflix 2',       type: 'embed', badge: 'HD', url: `https://player.videasy.net/movie/${imdbId}` },
+      { label: 'Blizzflix 3',       type: 'embed', badge: '4K', url: `https://embed.su/embed/movie/${imdbId}` },
+      { label: 'Blizzflix 4',       type: 'embed', badge: 'HD', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
+      { label: 'Blizzflix 5',       type: 'embed', badge: 'HD', url: `https://moviesapi.club/movie/${imdbId}` },
+      { label: 'Blizzflix 6',       type: 'embed', badge: 'HD', url: `https://2embed.cc/embed/${imdbId}` },
+      { label: 'Blizzflix 7',       type: 'embed', badge: 'HD', url: `https://multiembed.mov/?video_id=${imdbId}&imdb=1` },
+      { label: 'Blizzflix 8',       type: 'embed', badge: 'HD', url: `https://player.smashy.stream/movie/${imdbId}` },
+      { label: 'Blizzflix Moviebox', type: 'embed', badge: 'HD', url: `https://moviesbox.net/movie/${imdbId}` },
     ];
   }
 }

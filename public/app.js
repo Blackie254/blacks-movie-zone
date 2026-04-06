@@ -1044,19 +1044,9 @@ window.playerSelectServer = function(idx) {
   }
 };
 
-function _startAutoAdvance(delay = 18000) {
-  _clearAutoTimer();
-  if (_ps.idx < _ps.servers.length - 1) {
-    _ps.autoTimer = setTimeout(() => _advanceServer(1), delay);
-  }
-}
-
 function _mountEmbedFrame(container, server, isWatchPage) {
   const url = server.url || '';
   const srvLabel = server.label || 'Server';
-  const nextIdx = _ps.idx + 1;
-  const hasNext = nextIdx < _ps.servers.length;
-  const nextLabel = hasNext ? _ps.servers[nextIdx].label : '';
 
   container.innerHTML = `
   <div style="position:relative;background:#000;line-height:0">
@@ -1064,12 +1054,8 @@ function _mountEmbedFrame(container, server, isWatchPage) {
       <div class="spinner"></div>
       <div style="text-align:center">
         <div style="color:#e2e8f0;font-size:14px;font-weight:600;margin-bottom:4px">Loading ${esc(srvLabel)}…</div>
-        <div style="color:var(--text3);font-size:12px">If nothing plays, try the next server</div>
+        <div style="color:var(--text3);font-size:12px">If nothing plays, switch to another server</div>
       </div>
-      ${hasNext ? `<button onclick="playerNextServer()" style="margin-top:4px;padding:8px 20px;background:var(--primary);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Try ${esc(nextLabel)} →</button>` : ''}
-    </div>
-    <div id="embedNextBtn" style="position:absolute;top:12px;right:12px;z-index:4;display:none">
-      ${hasNext ? `<button onclick="playerNextServer()" style="padding:7px 14px;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:white;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="12" height="12" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/><rect x="17" y="5" width="2" height="14"/></svg>${esc(nextLabel)}</button>` : ''}
     </div>
     <iframe id="embedFrame"
       src="${esc(url)}"
@@ -1083,13 +1069,10 @@ function _mountEmbedFrame(container, server, isWatchPage) {
 
   const iframe = document.getElementById('embedFrame');
   const loading = document.getElementById('embedLoading');
-  const nextBtn = document.getElementById('embedNextBtn');
 
   function showPlayer() {
     if (loading) { loading.style.opacity = '0'; setTimeout(() => { if (loading) loading.style.display = 'none'; }, 400); }
     if (iframe) iframe.style.opacity = '1';
-    if (nextBtn && hasNext) nextBtn.style.display = 'block';
-    _startAutoAdvance(25000);
   }
 
   if (iframe) {
