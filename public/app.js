@@ -1061,6 +1061,7 @@ function _mountEmbedFrame(container, server, isWatchPage) {
       src="${esc(url)}"
       allowfullscreen
       allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock; screen-orientation"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-popups"
       referrerpolicy="no-referrer-when-downgrade"
       scrolling="no"
       style="width:100%;${isWatchPage ? 'aspect-ratio:16/9' : 'height:64vh'};border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
