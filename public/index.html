@@ -7,7 +7,7 @@
   <!-- Primary SEO -->
   <title>BlueBlizzard FreeFlix — Free Movies, TV Shows &amp; Live TV Streaming</title>
   <meta name="description" content="Watch free movies, TV shows, live sports, wrestling, news and comedy channels on BlueBlizzard FreeFlix. No sign-up required. Stream in HD instantly." />
-  <meta name="keywords" content="free movies online, watch TV shows free, live TV streaming, wrestling live, free streaming, watch movies no signup, BlueBlizzard FreeFlix, free film streaming, comedy channels live" />
+  <meta name="keywords" content="free movies online, watch TV shows free, live TV streaming, wrestling live, free streaming, watch movies no signup, BlueBlizzard FreeFlix" />
   <meta name="author" content="BlueBlizzard FreeFlix" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="/" id="canonicalTag" />
@@ -19,62 +19,43 @@
   <meta property="og:title" content="BlueBlizzard FreeFlix — Free Movies, TV Shows &amp; Live TV" id="ogTitle" />
   <meta property="og:description" content="Watch free movies, TV shows, live sports, wrestling, news and comedy channels. No sign-up required. Stream in HD instantly." id="ogDesc" />
   <meta property="og:image" content="/og-image.svg" />
-  <meta property="og:image:alt" content="BlueBlizzard FreeFlix — free streaming platform" />
   <meta property="og:locale" content="en_US" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:site" content="@BlueBlizzardFlix" />
   <meta name="twitter:title" content="BlueBlizzard FreeFlix — Free Movies, TV Shows &amp; Live TV" id="twTitle" />
   <meta name="twitter:description" content="Watch free movies, TV shows, live sports, wrestling, news and comedy channels. No sign-up required." id="twDesc" />
   <meta name="twitter:image" content="/og-image.svg" id="twImage" />
 
   <!-- PWA / Theme -->
-  <meta name="theme-color" content="#080c14" />
+  <meta name="theme-color" content="#0a0a0f" />
   <meta name="application-name" content="BlueBlizzard FreeFlix" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="BlueBlizzard" />
 
-  <!-- Favicon (emoji SVG) -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❄</text></svg>" />
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❄</text></svg>" />
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%236c63ff'/><polygon points='35,25 35,75 75,50' fill='white'/></svg>" />
 
-  <!-- JSON-LD: WebSite with SearchAction -->
+  <!-- JSON-LD -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "BlueBlizzard FreeFlix",
-    "alternateName": "BlueBlizzard",
     "url": "/",
     "description": "Watch free movies, TV shows, live sports, wrestling, news and comedy channels on BlueBlizzard FreeFlix. No sign-up required.",
     "inLanguage": "en-US",
     "potentialAction": {
       "@type": "SearchAction",
-      "target": {
-        "@type": "EntryPoint",
-        "urlTemplate": "/search?q={search_term_string}"
-      },
+      "target": { "@type": "EntryPoint", "urlTemplate": "/search?q={search_term_string}" },
       "query-input": "required name=search_term_string"
     }
   }
   </script>
 
-  <!-- JSON-LD: Organization -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "BlueBlizzard FreeFlix",
-    "url": "/",
-    "logo": "/og-image.svg",
-    "description": "Free streaming platform for movies, TV shows and live TV channels."
-  }
-  </script>
-
-  <!-- Preconnect to external resources -->
+  <!-- Preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
@@ -89,9 +70,13 @@
   <nav class="navbar" id="navbar" role="navigation" aria-label="Main navigation">
     <div class="nav-left">
       <a href="/" class="logo" onclick="navigate('/');return false;" aria-label="BlueBlizzard FreeFlix — Home">
-        <span class="logo-ice" aria-hidden="true">❄</span>
-        <span class="logo-text">Blue<span class="logo-accent">Blizzard</span></span>
-        <span class="logo-sub">FreeFlix</span>
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="logo-text-wrap">
+          <span class="logo-name">Blue<span>Blizzard</span></span>
+          <span class="logo-tag">FreeFlix</span>
+        </div>
       </a>
       <div class="nav-links" role="menubar">
         <a href="/" class="nav-link" data-page="home" onclick="navigate('/');return false;" role="menuitem">Home</a>
@@ -108,7 +93,7 @@
         <label for="searchInput" class="sr-only">Search movies and TV shows</label>
         <input type="search" id="searchInput" class="search-input" placeholder="Search… (press /)" autocomplete="off" spellcheck="false" aria-label="Search movies and TV shows" aria-autocomplete="list" aria-controls="searchSuggestions" />
         <button class="search-btn" id="searchBtn" aria-label="Submit search">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
         <div class="search-suggestions" id="searchSuggestions" role="listbox" aria-label="Search suggestions"></div>
       </div>
@@ -140,7 +125,7 @@
     <div class="player-container" id="playerContainer">
       <button class="player-close" id="playerClose" aria-label="Close player">✕</button>
       <button class="player-fullscreen-btn" id="playerFullscreenBtn" aria-label="Fullscreen">
-        <svg id="fsIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg id="fsIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
           <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
         </svg>
@@ -150,9 +135,6 @@
       <div class="player-info" id="playerInfo"></div>
     </div>
   </div>
-
-  <!-- Screen-reader only utility class -->
-  <style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
   <script src="/app.js"></script>

@@ -7,7 +7,7 @@ const API_BASE = 'https://movieapi.xcasper.space/api';
 const ALLOWED_CDN = ['macdn.aoneroom.com', 'pbcdnw.aoneroom.com', 'cdn.aoneroom.com'];
 
 const BROWSER_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
   'Referer': 'https://www.aoneroom.com/',
@@ -16,7 +16,7 @@ const BROWSER_HEADERS = {
 
 // ===== IN-MEMORY CACHE =====
 const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
 
 function getCached(key) {
   const entry = cache.get(key);
@@ -28,11 +28,11 @@ function setCache(key, data) {
   cache.set(key, { data, ts: Date.now() });
 }
 
-async function proxyFetch(url) {
+async function proxyFetch(url, opts = {}) {
   const cached = getCached(url);
   if (cached) return cached;
   try {
-    const res = await fetch(url, { headers: BROWSER_HEADERS });
+    const res = await fetch(url, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(opts.timeout || 8000), ...opts });
     const text = await res.text();
     let result;
     try { result = JSON.parse(text); } catch { result = { success: false, error: 'Invalid response from upstream' }; }
@@ -209,7 +209,7 @@ app.get('/proxy/newtoxic/resolve', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/newtoxic/resolve?fid=${fid}`));
 }));
 
-// ===== IMDb ID lookup via IMDb's free autocomplete =====
+// ===== IMDb ID lookup =====
 async function getImdbId(title, releaseDate, isShow) {
   try {
     const query = (title || '').toLowerCase().trim();
@@ -255,14 +255,12 @@ const LIVE_CHANNELS = [
   { id: 'fightbox', name: 'FightBox HD', category: 'wrestling', badge: '🥋', desc: 'Fights, MMA & combat sports', url: 'https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc002/fightboxhdraw/fightboxhdraw.m3u8' },
   { id: 'dazncombat', name: 'DAZN Combat', category: 'wrestling', badge: '⚔️', desc: 'Combat sports on DAZN', url: 'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
   { id: 'hardknocks', name: 'Hard Knocks', category: 'wrestling', badge: '💪', desc: 'Hard Knocks Fighting Championship', url: 'https://d39g1vxj2ef6in.cloudfront.net/v1/master/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod-rakuten-stitched/master.m3u8?ads.xumo_channelId=88883037' },
-  { id: 'persianafight', name: 'Persiana Fight', category: 'wrestling', badge: '🥊', desc: 'Fight sports channel', url: 'https://fighthls.persiana.live/hls/stream.m3u8' },
   // ── SPORTS ──
   { id: 'bein', name: 'beIN SPORTS XTRA', category: 'sports', badge: '⚽', desc: 'Premium sports from beIN', url: 'https://amg01334-beinsportsllc-beinxtra-samsungau-eiyvc.amagi.tv/playlist/amg01334-beinsportsllc-beinxtra-samsungau/playlist.m3u8' },
   { id: 'espnocho', name: 'ESPN8: The Ocho', category: 'sports', badge: '🏆', desc: 'If it is almost a sport, it is on ESPN8', url: 'https://d3b6q2ou5kp8ke.cloudfront.net/ESPNTheOcho.m3u8' },
   { id: 'cbssports', name: 'CBS Sports HQ', category: 'sports', badge: '🎯', desc: 'CBS Sports 24/7 news & events', url: 'https://propee33f9c2.airspace-cdn.cbsivideo.com/index.m3u8' },
   { id: 'cbsgolazo', name: 'CBS Golazo', category: 'sports', badge: '⚽', desc: 'Soccer news & highlights', url: 'https://proped3fhg87.airspace-cdn.cbsivideo.com/golazo-live-dai/master/golazo-live.m3u8' },
   { id: 'ddsports', name: 'DD Sports India', category: 'sports', badge: '🏏', desc: 'Cricket, kabaddi & more', url: 'https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/b17adfe543354fdd8d189b110617cddd/index.m3u8' },
-  { id: 'africa24sport', name: 'Africa24 Sport', category: 'sports', badge: '🌍', desc: 'Pan-African sports coverage', url: 'https://africa24.vedge.infomaniak.com/livecast/ik:africa24sport/manifest.m3u8' },
   // ── NEWS ──
   { id: 'abcnews1', name: 'ABC News Live', category: 'news', badge: '📺', desc: 'Breaking news 24/7', url: 'https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master_400.m3u8' },
   { id: 'abcnews2', name: 'ABC News Live 2', category: 'news', badge: '📺', desc: 'ABC News second channel', url: 'https://abcnews-streams.akamaized.net/hls/live/2023561/abcnewshudson2/master_400.m3u8' },
@@ -274,7 +272,6 @@ const LIVE_CHANNELS = [
   { id: 'comedy-movies', name: 'Comedy Movies', category: 'comedy', badge: '🎬', desc: 'Comedy films around the clock', url: 'https://jmp2.uk/plu-163.m3u8' },
   { id: 'romcom', name: 'RomCom Channel', category: 'comedy', badge: '❤️', desc: 'Romantic comedies 24/7', url: 'https://jmp2.uk/plu-107.m3u8' },
   { id: 'comedy-tv', name: 'Comedy.TV', category: 'comedy', badge: '📺', desc: 'Classic & modern comedy series', url: 'https://jmp2.uk/plu-178.m3u8' },
-  { id: 'funny-movies', name: 'Funny Movies', category: 'comedy', badge: '🤣', desc: 'Laugh-out-loud films all day', url: 'https://jmp2.uk/plu-165.m3u8' },
   // ── ENTERTAINMENT ──
   { id: 'pluto-classic', name: 'Classic Movies', category: 'entertainment', badge: '🎬', desc: 'Timeless classic films', url: 'https://jmp2.uk/plu-62.m3u8' },
   { id: 'pluto-action', name: 'Action Movies', category: 'entertainment', badge: '💥', desc: 'Non-stop action films', url: 'https://jmp2.uk/plu-63.m3u8' },
@@ -292,7 +289,7 @@ app.get('/proxy/live-channels', (req, res) => {
 async function getMovieBoxStreams(title, year, isShow, season = 1, episode = 1) {
   try {
     const type = isShow ? 'tv' : 'movie';
-    const search = await proxyFetch(`${API_BASE}/showbox/search?keyword=${encodeURIComponent(title)}&type=${type}&pagelimit=8`);
+    const search = await proxyFetch(`${API_BASE}/showbox/search?keyword=${encodeURIComponent(title)}&type=${type}&pagelimit=8`, { timeout: 6000 });
     const items = search?.data?.list || search?.data?.data?.list || search?.list || [];
     if (!items.length) return null;
 
@@ -313,13 +310,13 @@ async function getMovieBoxStreams(title, year, isShow, season = 1, episode = 1) 
     let directLink = null;
 
     if (isShow) {
-      const r = await proxyFetch(`${API_BASE}/stream?id=${mbId}&type=tv&season=${season}&episode=${episode}`);
+      const r = await proxyFetch(`${API_BASE}/stream?id=${mbId}&type=tv&season=${season}&episode=${episode}`, { timeout: 6000 });
       directLink = r?.data?.link || r?.data?.url || r?.link || r?.url;
       rawStreams = r?.data?.list || r?.list || [];
     } else {
       const [r1, r2] = await Promise.all([
-        proxyFetch(`${API_BASE}/showbox/streams?id=${mbId}`),
-        proxyFetch(`${API_BASE}/stream?id=${mbId}&type=movie`),
+        proxyFetch(`${API_BASE}/showbox/streams?id=${mbId}`, { timeout: 6000 }),
+        proxyFetch(`${API_BASE}/stream?id=${mbId}&type=movie`, { timeout: 6000 }),
       ]);
       rawStreams = r1?.data?.list || r1?.data?.streams || r1?.list || [];
       directLink = r2?.data?.link || r2?.data?.url || r2?.link || r2?.url;
@@ -389,9 +386,9 @@ app.get('/proxy/mb-stream', wrap(async (req, res) => {
   }
 }));
 
-// ===== WATCH INFO — builds embed server list with MovieBox as Server 1 =====
+// ===== WATCH INFO =====
 app.get('/proxy/watch', wrap(async (req, res) => {
-  const { subjectId } = req.query;
+  const { subjectId, season = '1', episode = '1' } = req.query;
   if (!subjectId) return res.json({ success: false, error: 'Missing subjectId' });
 
   const detail = await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`);
@@ -400,46 +397,59 @@ app.get('/proxy/watch', wrap(async (req, res) => {
 
   const isShow = d.subjectType === 2;
   const year = d.releaseDate ? d.releaseDate.split('-')[0] : null;
+  const s = parseInt(season) || 1;
+  const e = parseInt(episode) || 1;
 
-  // Resolve IMDb ID and MovieBox streams in parallel
   const [imdbId, mb] = await Promise.all([
     getImdbId(d.title, d.releaseDate, isShow),
     Promise.race([
-      getMovieBoxStreams(d.title, year, isShow),
-      new Promise(r => setTimeout(() => r(null), 7000)),
+      getMovieBoxStreams(d.title, year, isShow, s, e),
+      new Promise(r => setTimeout(() => r(null), 8000)),
     ]),
   ]);
 
   const mbStreams = mb?.streams || [];
 
   let servers = [];
+
   if (isShow) {
-    servers = [
-      mbStreams.length
-        ? { label: 'Server 1', type: 'direct', streams: mbStreams }
-        : { label: 'Server 1', type: 'embed', url: imdbId ? `https://player.videasy.net/tv/${imdbId}/1/1` : null },
-      ...(imdbId ? [
-        { label: 'Blizzflix', type: 'embed', url: `https://moviesapi.club/tv/${imdbId}-1-1` },
-        { label: 'Server 2', type: 'embed', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=1&episode=1` },
-        { label: 'Server 3', type: 'embed', url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=1&episode=1` },
-        { label: 'Server 4', type: 'embed', url: `https://2embed.cc/embedtv/${imdbId}` },
-      ] : []),
-    ].filter(s => s.url || s.streams?.length);
+    const embedServers = imdbId ? [
+      { label: 'Blizzflix', type: 'embed', url: `https://vidsrc.to/embed/tv/${imdbId}/${s}/${e}` },
+      { label: 'Server 2', type: 'embed', url: `https://player.videasy.net/tv/${imdbId}/${s}/${e}` },
+      { label: 'Server 3', type: 'embed', url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=${s}&episode=${e}` },
+      { label: 'Server 4', type: 'embed', url: `https://moviesapi.club/tv/${imdbId}-${s}-${e}` },
+      { label: 'Server 5', type: 'embed', url: `https://2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` },
+    ] : [];
+
+    if (mbStreams.length) {
+      servers = [
+        { label: 'Server 1', type: 'direct', streams: mbStreams },
+        ...embedServers,
+      ];
+    } else {
+      servers = embedServers.map((s, i) => ({ ...s, label: i === 0 ? 'Server 1' : s.label }));
+    }
   } else {
-    servers = [
-      mbStreams.length
-        ? { label: 'Server 1', type: 'direct', streams: mbStreams }
-        : { label: 'Server 1', type: 'embed', url: imdbId ? `https://autoembed.co/movie/imdb/${imdbId}` : null },
-      ...(imdbId ? [
-        { label: 'Blizzflix', type: 'embed', url: `https://moviesapi.club/movie/${imdbId}` },
-        { label: 'Server 2', type: 'embed', url: `https://player.videasy.net/movie/${imdbId}` },
-        { label: 'Server 3', type: 'embed', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
-        { label: 'Server 4', type: 'embed', url: `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` },
-      ] : []),
-    ].filter(s => s.url || s.streams?.length);
+    const embedServers = imdbId ? [
+      { label: 'Blizzflix', type: 'embed', url: `https://vidsrc.to/embed/movie/${imdbId}` },
+      { label: 'Server 2', type: 'embed', url: `https://player.videasy.net/movie/${imdbId}` },
+      { label: 'Server 3', type: 'embed', url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` },
+      { label: 'Server 4', type: 'embed', url: `https://moviesapi.club/movie/${imdbId}` },
+      { label: 'Server 5', type: 'embed', url: `https://2embed.cc/embed/${imdbId}` },
+    ] : [];
+
+    if (mbStreams.length) {
+      servers = [
+        { label: 'Server 1', type: 'direct', streams: mbStreams },
+        ...embedServers,
+      ];
+    } else {
+      servers = embedServers.map((s, i) => ({ ...s, label: i === 0 ? 'Server 1' : s.label }));
+    }
   }
 
-  const vidsrcUrl = servers.length ? (servers[0].url || null) : null;
+  servers = servers.filter(s => s.url || s.streams?.length);
+
   const detailPath = d.detailPath || '';
   const aoneUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
 
@@ -466,11 +476,12 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     title: d.title,
     imdbId,
     servers,
-    vidsrcUrl,
     aoneUrl,
     previewUrl,
     tracks,
     isShow,
+    season: s,
+    episode: e,
     year: d.releaseDate ? d.releaseDate.split('-')[0] : null,
     rating: d.imdbRatingValue || null,
     genres: d.genre ? d.genre.split(',').map(g => g.trim()).filter(Boolean) : [],
@@ -481,7 +492,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   });
 }));
 
-// ===== VIDEO PROXY — pipes CDN video with range request support =====
+// ===== VIDEO PROXY =====
 app.get('/proxy/video', wrap(async (req, res) => {
   const rawUrl = req.query.url;
   if (!rawUrl) return res.status(400).send('Missing url');
