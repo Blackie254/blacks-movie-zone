@@ -619,16 +619,42 @@ footer {
   width: 100vw; height: 100vh; max-width: 100vw;
   border-radius: 0; overflow: hidden;
   display: flex; flex-direction: column;
+  background: #000;
 }
-.player-container:fullscreen .player-body,
-.player-container:-webkit-full-screen .player-body,
-.player-container:-moz-full-screen .player-body { flex: 1; display: flex; align-items: center; justify-content: center; }
-.player-container:fullscreen .player-body video,
-.player-container:-webkit-full-screen .player-body video,
-.player-container:-moz-full-screen .player-body video { max-height: 100%; height: 100%; width: 100%; object-fit: contain; }
+.player-container:fullscreen .player-header,
+.player-container:-webkit-full-screen .player-header,
+.player-container:-moz-full-screen .player-header { display: none; }
+.player-container:fullscreen .player-close,
+.player-container:-webkit-full-screen .player-close,
+.player-container:-moz-full-screen .player-close { display: none; }
+.player-container:fullscreen .player-fullscreen-btn,
+.player-container:-webkit-full-screen .player-fullscreen-btn,
+.player-container:-moz-full-screen .player-fullscreen-btn { display: none; }
 .player-container:fullscreen .player-info,
 .player-container:-webkit-full-screen .player-info,
 .player-container:-moz-full-screen .player-info { display: none; }
+.player-container:fullscreen .player-body,
+.player-container:-webkit-full-screen .player-body,
+.player-container:-moz-full-screen .player-body {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+}
+.player-container:fullscreen .player-body video,
+.player-container:-webkit-full-screen .player-body video,
+.player-container:-moz-full-screen .player-body video {
+  max-height: 100%; height: 100%; width: 100%; object-fit: contain;
+}
+.player-container:fullscreen .player-body iframe,
+.player-container:-webkit-full-screen .player-body iframe,
+.player-container:-moz-full-screen .player-body iframe {
+  width: 100% !important; height: 100% !important;
+  aspect-ratio: unset !important; border: none;
+}
+.player-container:fullscreen .player-body > div,
+.player-container:-webkit-full-screen .player-body > div,
+.player-container:-moz-full-screen .player-body > div {
+  width: 100%; height: 100%; position: relative; background: #000;
+}
 
 .player-streams { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .stream-btn {
