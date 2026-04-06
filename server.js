@@ -266,7 +266,6 @@ function buildEmbedServers(imdbId, isShow, s, e) {
       { label: 'Blizzflix 6',       type: 'embed', badge: 'HD', url: `https://2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` },
       { label: 'Blizzflix 7',       type: 'embed', badge: 'HD', url: `https://multiembed.mov/?video_id=${imdbId}&imdb=1&s=${s}&e=${e}` },
       { label: 'Blizzflix 8',       type: 'embed', badge: 'HD', url: `https://player.smashy.stream/tv/${imdbId}?s=${s}&e=${e}` },
-      { label: 'Blizzflix Moviebox', type: 'embed', badge: 'HD', url: `https://moviesbox.net/tv/${imdbId}/${s}/${e}` },
     ];
   } else {
     return [
@@ -278,7 +277,6 @@ function buildEmbedServers(imdbId, isShow, s, e) {
       { label: 'Blizzflix 6',       type: 'embed', badge: 'HD', url: `https://2embed.cc/embed/${imdbId}` },
       { label: 'Blizzflix 7',       type: 'embed', badge: 'HD', url: `https://multiembed.mov/?video_id=${imdbId}&imdb=1` },
       { label: 'Blizzflix 8',       type: 'embed', badge: 'HD', url: `https://player.smashy.stream/movie/${imdbId}` },
-      { label: 'Blizzflix Moviebox', type: 'embed', badge: 'HD', url: `https://moviesbox.net/movie/${imdbId}` },
     ];
   }
 }
