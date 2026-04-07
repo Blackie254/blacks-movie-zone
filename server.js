@@ -252,12 +252,54 @@ async function getImdbId(title, releaseDate, isShow) {
   }
 }
 
+// ===== YOUTUBE EPISODE SEARCH =====
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || '';
+
+async function findYouTubeEpisode(title, season, episode) {
+  const s = String(season).padStart(2, '0');
+  const e = String(episode).padStart(2, '0');
+  const query = `${title} S${s}E${e} full episode`;
+
+  // If API key is set, use the official YouTube Data API for precise results
+  if (YOUTUBE_API_KEY) {
+    const cacheKey = `yt:${query}`;
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+    try {
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoEmbeddable=true&maxResults=5&key=${YOUTUBE_API_KEY}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      const data = await res.json();
+      const items = data.items || [];
+      if (items.length) {
+        const videoId = items[0].id.videoId;
+        const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        setCache(cacheKey, embedUrl);
+        return embedUrl;
+      }
+    } catch (_) {}
+  }
+
+  // Fallback: YouTube embed search (no API key needed — plays top search result)
+  return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1&rel=0`;
+}
+
 // ===== BUILD EMBED SERVERS =====
-function buildEmbedServers(imdbId, isShow, s, e) {
-  if (!imdbId) return [];
+function buildEmbedServers(imdbId, isShow, s, e, title) {
+  const base = [];
 
   if (isShow) {
-    return [
+    // YouTube server for TV shows (searches for the specific episode)
+    const ytQuery = `${title || ''} S${String(s).padStart(2,'0')}E${String(e).padStart(2,'0')} full episode`;
+    const ytUrl = YOUTUBE_API_KEY
+      ? null  // will be resolved async; placeholder replaced post-build
+      : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(ytQuery)}&autoplay=1&rel=0`;
+
+    if (!imdbId) {
+      // No IMDb ID — only YouTube available
+      return ytUrl ? [{ label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl }] : [];
+    }
+
+    base.push(
       { label: 'Blizzflix 1',  type: 'embed', badge: 'HD',  url: `https://vidsrc.to/embed/tv/${imdbId}/${s}/${e}` },
       { label: 'Blizzflix 2',  type: 'embed', badge: 'HD',  url: `https://player.videasy.net/tv/${imdbId}/${s}/${e}` },
       { label: 'Blizzflix 3',  type: 'embed', badge: '4K',  url: `https://embed.su/embed/tv/${imdbId}/${s}/${e}` },
@@ -268,8 +310,11 @@ function buildEmbedServers(imdbId, isShow, s, e) {
       { label: 'Blizzflix 8',  type: 'embed', badge: 'HD',  url: `https://www.2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` },
       { label: 'Blizzflix 9',  type: 'embed', badge: 'HD',  url: `https://moviesapi.club/tv/${imdbId}-${s}-${e}` },
       { label: 'Blizzflix 10', type: 'embed', badge: 'HD',  url: `https://vidsrc.pro/embed/tv/${imdbId}/${s}/${e}` },
-    ];
+    );
+    if (ytUrl) base.push({ label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl });
+    return base;
   } else {
+    if (!imdbId) return [];
     return [
       { label: 'Blizzflix 1',  type: 'embed', badge: 'HD',  url: `https://vidsrc.xyz/embed/movie/${imdbId}` },
       { label: 'Blizzflix 2',  type: 'embed', badge: 'HD',  url: `https://player.videasy.net/movie/${imdbId}` },
@@ -420,8 +465,18 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   // Get IMDb ID - this unlocks all embed servers
   const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
 
-  // Build servers from reliable embed providers
-  const servers = buildEmbedServers(imdbId, isShow, s, e);
+  // Build servers from reliable embed providers (+ YouTube for TV shows)
+  let servers = buildEmbedServers(imdbId, isShow, s, e, d.title);
+
+  // If API key set, replace the embed-search YouTube URL with a precise video ID
+  if (isShow && YOUTUBE_API_KEY) {
+    const ytUrl = await findYouTubeEpisode(d.title, s, e);
+    if (ytUrl) {
+      const ytIdx = servers.findIndex(sv => sv.label === 'YouTube');
+      if (ytIdx >= 0) servers[ytIdx] = { label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl };
+      else servers.push({ label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl });
+    }
+  }
 
   let previewUrl = null;
   if (d.trailerUrl) {
