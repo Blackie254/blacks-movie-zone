@@ -1250,16 +1250,33 @@ function _setWatchFs(active) {
 }
 
 window.watchFullscreen = function() {
-  const isFs = document.body.classList.contains('watch-fs-active');
-  _setWatchFs(!isFs);
-  if (!isFs) {
-    // Also try native browser fullscreen on the page for immersion (hides browser chrome)
-    const req = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
-    if (req) req.call(document.documentElement).catch(() => {});
-  } else {
+  const embed = document.getElementById('watchPlayerEmbed');
+  const isNativeFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const isCssFs = document.body.classList.contains('watch-fs-active');
+
+  if (isNativeFs || isCssFs) {
+    // exit fullscreen
+    _setWatchFs(false);
     const exit = document.exitFullscreen || document.webkitExitFullscreen;
-    if (exit && (document.fullscreenElement || document.webkitFullscreenElement)) exit.call(document).catch(() => {});
+    if (exit && isNativeFs) exit.call(document).catch(() => {});
+    return;
   }
+
+  // Try native fullscreen on the embed element itself for true full-screen
+  if (embed) {
+    const req = embed.requestFullscreen || embed.webkitRequestFullscreen || embed.mozRequestFullScreen;
+    if (req) {
+      req.call(embed).catch(() => {
+        // Fallback: CSS-based fullscreen
+        _setWatchFs(true);
+      });
+      // Also activate CSS mode so our UI hides and exit button shows
+      _setWatchFs(true);
+      return;
+    }
+  }
+  // Pure CSS fallback
+  _setWatchFs(true);
 };
 
 // Sync custom fullscreen with native fullscreen changes (e.g. embed player's own fullscreen btn)

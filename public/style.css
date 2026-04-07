@@ -672,24 +672,28 @@ footer {
 .player-container:fullscreen .player-body,
 .player-container:-webkit-full-screen .player-body,
 .player-container:-moz-full-screen .player-body {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  width: 100%; height: 100%;
-}
-.player-container:fullscreen .player-body video,
-.player-container:-webkit-full-screen .player-body video,
-.player-container:-moz-full-screen .player-body video {
-  max-height: 100%; height: 100%; width: 100%; object-fit: contain;
-}
-.player-container:fullscreen .player-body iframe,
-.player-container:-webkit-full-screen .player-body iframe,
-.player-container:-moz-full-screen .player-body iframe {
-  width: 100% !important; height: 100% !important;
-  aspect-ratio: unset !important; border: none;
+  flex: 1; position: relative; width: 100%; overflow: hidden;
 }
 .player-container:fullscreen .player-body > div,
 .player-container:-webkit-full-screen .player-body > div,
 .player-container:-moz-full-screen .player-body > div {
-  width: 100%; height: 100%; position: relative; background: #000;
+  position: absolute !important; inset: 0 !important;
+  width: 100% !important; height: 100% !important;
+  background: #000;
+}
+.player-container:fullscreen .player-body video,
+.player-container:-webkit-full-screen .player-body video,
+.player-container:-moz-full-screen .player-body video {
+  position: absolute !important; inset: 0 !important;
+  width: 100% !important; height: 100% !important;
+  max-height: 100% !important; object-fit: contain;
+}
+.player-container:fullscreen .player-body iframe,
+.player-container:-webkit-full-screen .player-body iframe,
+.player-container:-moz-full-screen .player-body iframe {
+  position: absolute !important; inset: 0 !important;
+  width: 100% !important; height: 100% !important;
+  aspect-ratio: unset !important; border: none !important;
 }
 
 .player-streams { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
@@ -971,7 +975,31 @@ footer {
 
 /* ===== CUSTOM FULLSCREEN MODE ===== */
 
-/* Player expands to cover the entire viewport */
+/* ===== NATIVE FULLSCREEN: watch embed element ===== */
+#watchPlayerEmbed:fullscreen,
+#watchPlayerEmbed:-webkit-full-screen,
+#watchPlayerEmbed:-moz-full-screen {
+  width: 100vw !important; height: 100vh !important;
+  background: #000 !important; position: relative !important;
+}
+#watchPlayerEmbed:fullscreen > div,
+#watchPlayerEmbed:-webkit-full-screen > div,
+#watchPlayerEmbed:-moz-full-screen > div {
+  position: absolute !important; inset: 0 !important;
+  width: 100% !important; height: 100% !important; background: #000 !important;
+}
+#watchPlayerEmbed:fullscreen iframe,
+#watchPlayerEmbed:-webkit-full-screen iframe,
+#watchPlayerEmbed:-moz-full-screen iframe,
+#watchPlayerEmbed:fullscreen video,
+#watchPlayerEmbed:-webkit-full-screen video,
+#watchPlayerEmbed:-moz-full-screen video {
+  position: absolute !important; inset: 0 !important;
+  width: 100% !important; height: 100% !important;
+  aspect-ratio: unset !important; border: none !important;
+}
+
+/* ===== CSS-BASED FULLSCREEN FALLBACK ===== */
 body.watch-fs-active {
   overflow: hidden;
 }
@@ -982,6 +1010,7 @@ body.watch-fs-active #watchPlayerEmbed {
   height: 100vh !important;
   z-index: 99999 !important;
   background: #000 !important;
+  border-radius: 0 !important;
 }
 /* Inner wrapper div fills the container */
 body.watch-fs-active #watchPlayerEmbed > div {
@@ -1000,6 +1029,7 @@ body.watch-fs-active #watchPlayerEmbed video {
   height: 100% !important;
   aspect-ratio: unset !important;
   border: none !important;
+  max-height: 100vh !important;
 }
 /* Hide all page UI when fullscreen is active — targeted by both class and ID */
 body.watch-fs-active #navbar,
