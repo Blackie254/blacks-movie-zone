@@ -679,23 +679,66 @@ async function fetchBrowse(reset) {
 }
 
 // ===== NEW ARRIVALS =====
+let newTab = 'movies';
 async function renderNewArrivals() {
   updateSEO({ title: 'New Arrivals', description: 'The latest movies and TV shows added to BlueBlizzard FreeFlix. Watch new releases free in HD.' });
   setApp(`
-  <div class="page-header fade-up">
-    <h1 class="page-title">🆕 New Arrivals</h1>
-    <p class="page-subtitle">The freshest titles added this week</p>
+  <div class="new-arrivals-hero fade-up">
+    <div class="new-arrivals-hero-bg"></div>
+    <div class="new-arrivals-hero-content">
+      <div class="new-arrivals-badge"><span class="na-spark">✦</span> FRESH PICKS</div>
+      <h1 class="new-arrivals-title">New Arrivals</h1>
+      <p class="new-arrivals-sub">The hottest new movies & series — updated daily</p>
+    </div>
   </div>
-  <div class="section">${skeletonGrid(24)}</div>
+  <div class="new-tabs-bar">
+    <button class="new-tab active" onclick="switchNewTab('movies',this)">🎬 New Movies</button>
+    <button class="new-tab" onclick="switchNewTab('shows',this)">📺 New Series</button>
+    <button class="new-tab" onclick="switchNewTab('other',this)">🆕 Latest Additions</button>
+  </div>
+  <div class="section" id="newArrivalsSection">${skeletonGrid(24)}</div>
   ${renderFooter()}`);
 
-  const data = await api('newtoxic/latest', { page: 1 });
-  const items = data?.data?.list || data?.data?.items || data?.list || [];
-  const sec = app.querySelector('.section');
-  if (sec) sec.innerHTML = items.length
-    ? `<div class="cards-grid fade-in">${items.map(makeNtCard).join('')}</div>`
-    : emptyHtml('🆕', 'No new arrivals yet', 'Check back soon');
+  newTab = 'movies';
+  const [movies, shows, latest] = await Promise.all([
+    api('browse', { subjectType: 1, page: 1, perPage: 36 }),
+    api('browse', { subjectType: 2, page: 1, perPage: 36 }),
+    api('newtoxic/latest', { page: 1 }),
+  ]);
+
+  window._naMovies = movies?.data?.subjectList || [];
+  window._naShows = shows?.data?.subjectList || [];
+  window._naOther = latest?.data?.list || latest?.data?.items || latest?.list || [];
+
+  renderNewTab('movies');
 }
+
+function renderNewTab(tab) {
+  newTab = tab;
+  const sec = document.getElementById('newArrivalsSection');
+  if (!sec) return;
+  if (tab === 'movies') {
+    sec.innerHTML = window._naMovies?.length
+      ? `<div class="cards-grid fade-in">${window._naMovies.map(makeCard).join('')}</div>`
+      : emptyHtml('🎬', 'No new movies yet', 'Check back soon');
+  } else if (tab === 'shows') {
+    sec.innerHTML = window._naShows?.length
+      ? `<div class="cards-grid fade-in">${window._naShows.map(makeCard).join('')}</div>`
+      : emptyHtml('📺', 'No new series yet', 'Check back soon');
+  } else {
+    sec.innerHTML = window._naOther?.length
+      ? `<div class="cards-grid fade-in">${window._naOther.map(makeNtCard).join('')}</div>`
+      : emptyHtml('🆕', 'No new arrivals yet', 'Check back soon');
+  }
+}
+
+window.switchNewTab = function(tab, btn) {
+  document.querySelectorAll('.new-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  const sec = document.getElementById('newArrivalsSection');
+  if (sec) sec.innerHTML = skeletonGrid(24);
+  renderNewTab(tab);
+};
 
 // ===== LIVE TV =====
 async function renderLive() {
@@ -745,11 +788,11 @@ async function renderLive() {
   function renderCat(cat) {
     const filtered = channels.filter(c => c.category === cat);
     fill('liveGrid', filtered.map(ch => `
-      <div class="live-card" onclick="playLiveChannel('${esc(ch.url)}','${esc(ch.name)}','${esc(ch.category)}')">
+      <div class="live-card" onclick="playLiveChannel('${esc(ch.url)}','${esc(ch.name)}','${esc(ch.category)}','${ch.type||'hls'}')">
         <div class="live-thumb" style="background:${catColors[ch.category]||catColors.entertainment}">
           <div class="live-thumb-emoji">${ch.badge}</div>
           <div class="live-thumb-overlay"></div>
-          <span class="live-badge-pill"><span class="live-dot"></span>LIVE</span>
+          <span class="live-badge-pill"><span class="live-dot"></span>${ch.type==='embed'?'YT LIVE':'LIVE'}</span>
           <div class="live-play-btn">
             <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -771,8 +814,7 @@ async function renderLive() {
   };
 }
 
-window.playLiveChannel = function(url, name, category) {
-  const proxyUrl = `/proxy/live-stream?url=${encodeURIComponent(url)}`;
+window.playLiveChannel = function(url, name, category, type) {
   const overlay = document.getElementById('playerOverlay');
   const header = document.getElementById('playerHeader');
   const body = document.getElementById('playerBody');
@@ -780,6 +822,35 @@ window.playLiveChannel = function(url, name, category) {
   overlay.classList.add('show');
   header.innerHTML = `${esc(name)} <span style="font-size:10px;background:var(--red);color:white;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle;font-weight:700;letter-spacing:1px;display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;background:#fff;border-radius:50%;display:inline-block;animation:livePulse 1.4s ease-in-out infinite"></span>LIVE</span>`;
   info.innerHTML = '';
+
+  if (type === 'embed') {
+    body.innerHTML = `
+      <div style="position:relative;background:#000;line-height:0">
+        <div id="liveLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#08080f;z-index:2">
+          <div class="spinner"></div>
+          <div style="color:var(--text3);font-size:13px">Connecting to ${esc(name)}…</div>
+        </div>
+        <iframe src="${esc(url)}"
+          allow="autoplay; fullscreen; encrypted-media"
+          allowfullscreen
+          referrerpolicy="no-referrer-when-downgrade"
+          style="width:100%;height:64vh;border:none;display:block;background:#000;opacity:0;transition:opacity 0.5s"
+          id="liveEmbedFrame">
+        </iframe>
+      </div>`;
+    const iframe = document.getElementById('liveEmbedFrame');
+    const loading = document.getElementById('liveLoading');
+    if (iframe) {
+      iframe.addEventListener('load', () => {
+        if (loading) loading.style.display = 'none';
+        iframe.style.opacity = '1';
+      }, { once: true });
+      setTimeout(() => { if (loading) loading.style.display = 'none'; if (iframe) iframe.style.opacity = '1'; }, 5000);
+    }
+    return;
+  }
+
+  const proxyUrl = `/proxy/live-stream?url=${encodeURIComponent(url)}`;
   body.innerHTML = `
     <div style="position:relative;background:#000;line-height:0">
       <div id="liveLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#08080f;z-index:2">
@@ -807,7 +878,7 @@ window.playLiveChannel = function(url, name, category) {
     hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
     hls.on(Hls.Events.ERROR, (_, d) => {
       if (d.fatal) {
-        if (loading) loading.innerHTML = `<div style="color:var(--text3);font-size:14px;text-align:center;padding:20px;line-height:1.6">📡 Stream unavailable<br><span style="font-size:12px;opacity:0.6">This channel may be offline or geo-restricted.<br>Try a different channel.</span></div>`;
+        if (loading) loading.innerHTML = `<div style="color:var(--text3);font-size:14px;text-align:center;padding:20px;line-height:1.6">📡 Stream temporarily unavailable<br><span style="font-size:12px;opacity:0.6">This channel may be offline or geo-restricted.<br>Try switching to another channel.</span></div>`;
       }
     });
     video._hls = hls;
@@ -978,15 +1049,21 @@ async function renderDetail(id) {
   if (isShow && seasons.length) {
     page.insertAdjacentHTML('beforeend', `
     <div class="watch-section">
-      <div class="section-header"><h3 class="section-title">Episodes</h3></div>
+      <div class="section-header">
+        <h3 class="section-title">Episodes</h3>
+        <button class="play-all-btn" id="playAllBtn" onclick="playAllEpisodes('${id}','${seasons[0].seasonId||seasons[0].id||id}',1,'${esc(d.title)}')">
+          <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          Play All
+        </button>
+      </div>
       <div class="seasons-tabs" id="seasonsTabs">
-        ${seasons.map((s, i) => `<button class="season-tab${i===0?' active':''}" onclick="loadSeason('${id}','${s.seasonId||s.id||id}',${s.index||i+1},this)">Season ${s.index||i+1}</button>`).join('')}
+        ${seasons.map((s, i) => `<button class="season-tab${i===0?' active':''}" onclick="loadSeason('${id}','${s.seasonId||s.id||id}',${s.index||i+1},this,'${esc(d.title)}')">Season ${s.index||i+1}</button>`).join('')}
       </div>
       <div id="episodesGrid" class="episodes-grid">
         <div class="spinner-wrap" style="min-height:140px"><div class="spinner"></div></div>
       </div>
     </div>`);
-    loadSeasonEpisodes(id, seasons[0].seasonId || seasons[0].id || id, 1);
+    loadSeasonEpisodes(id, seasons[0].seasonId || seasons[0].id || id, 1, d.title);
   }
 
   if (cast.length) {
@@ -1220,22 +1297,29 @@ window.switchDubLink = function(url, btn) {
   btn.classList.add('active');
 };
 
-window.loadSeason = function(subjectId, seasonId, seasonNum, btn) {
+window.loadSeason = function(subjectId, seasonId, seasonNum, btn, showTitle) {
   _currentShowId = subjectId;
   _currentSeasonNum = seasonNum || 1;
   document.querySelectorAll('.season-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   fill('episodesGrid', `<div class="spinner-wrap" style="min-height:140px"><div class="spinner"></div></div>`);
-  loadSeasonEpisodes(subjectId, seasonId, _currentSeasonNum);
+  const paBtn = document.getElementById('playAllBtn');
+  if (paBtn) paBtn.onclick = () => playAllEpisodes(subjectId, seasonId, seasonNum, showTitle || '');
+  loadSeasonEpisodes(subjectId, seasonId, _currentSeasonNum, showTitle);
 };
 
-async function loadSeasonEpisodes(subjectId, seasonId, seasonNum) {
+async function loadSeasonEpisodes(subjectId, seasonId, seasonNum, showTitle) {
   const sNum = seasonNum || _currentSeasonNum || 1;
   const data = await api('play', { subjectId: seasonId || subjectId });
   const episodes = data?.data?.episodeList || data?.data?.episodes || [];
   const grid = document.getElementById('episodesGrid');
   if (!grid) return;
   if (!episodes.length) { grid.innerHTML = emptyHtml('📺', 'No episodes found'); return; }
+  window._currentEpisodeList = episodes.map((ep, i) => ({
+    subjectId, seasonId, seasonNum: sNum,
+    title: ep.title || `Episode ${ep.index || i+1}`,
+    epNum: ep.index || ep.episode || (i + 1),
+  }));
   grid.innerHTML = `<div class="episodes-grid fade-in">${episodes.map((ep, i) => {
     const epNum = ep.index || ep.episode || (i + 1);
     return `
@@ -1251,6 +1335,89 @@ async function loadSeasonEpisodes(subjectId, seasonId, seasonNum) {
     </div>
   </div>`;
   }).join('')}</div>`;
+}
+
+// ===== PLAY ALL EPISODES (MovieBox/ShowBox API) =====
+let _playlist = [];
+let _playlistIdx = 0;
+
+window.playAllEpisodes = async function(subjectId, seasonId, seasonNum, showTitle) {
+  toast('Loading episode playlist…', 'info');
+  const data = await api('play', { subjectId: seasonId || subjectId });
+  const episodes = data?.data?.episodeList || data?.data?.episodes || [];
+  if (!episodes.length) { toast('No episodes found for this season', 'error'); return; }
+
+  _playlist = episodes.map((ep, i) => ({
+    subjectId,
+    title: ep.title || `Episode ${ep.index || i + 1}`,
+    season: seasonNum || 1,
+    episode: ep.index || ep.episode || (i + 1),
+  }));
+  _playlistIdx = 0;
+  _openPlaylistPlayer(_playlist, 0, showTitle || 'Series');
+};
+
+function _openPlaylistPlayer(queue, startIdx, showTitle) {
+  const overlay = document.getElementById('playerOverlay');
+  const header = document.getElementById('playerHeader');
+  const body = document.getElementById('playerBody');
+  const info = document.getElementById('playerInfo');
+  overlay.classList.add('show');
+  _playlistIdx = startIdx;
+  _loadPlaylistEp(queue, startIdx, showTitle, header, body, info);
+}
+
+async function _loadPlaylistEp(queue, idx, showTitle, header, body, info) {
+  _playlistIdx = idx;
+  const ep = queue[idx];
+  header.textContent = `${showTitle} · S${ep.season}E${ep.episode} — ${ep.title}`;
+  body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
+  info.innerHTML = '';
+
+  const key = `${ep.subjectId}:${ep.season}:${ep.episode}`;
+  if (!streamCache.has(key)) prefetchStream(ep.subjectId, ep.season, ep.episode);
+  const watchData = await streamCache.get(key);
+
+  if (!watchData?.success || !watchData.servers?.length) {
+    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>Stream unavailable for this episode</h3><p style="font-size:13px;margin-top:6px">Trying next episode…</p></div>`;
+    if (idx + 1 < queue.length) setTimeout(() => _loadPlaylistEp(queue, idx + 1, showTitle, header, body, info), 2500);
+    return;
+  }
+
+  _ps.servers = watchData.servers;
+  _ps.idx = 0;
+  _ps.context = 'modal';
+  _clearAutoTimer();
+  _mountModalEmbed(body, watchData.servers[0]);
+
+  const serverBtns = watchData.servers.map((s, i) =>
+    `<button class="stream-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge">${esc(s.badge)}</span>` : ''}</button>`
+  ).join('');
+
+  const hasNext = idx + 1 < queue.length;
+  const hasPrev = idx > 0;
+
+  info.innerHTML = `
+    <div class="playlist-controls">
+      <div class="playlist-nav">
+        ${hasPrev ? `<button class="playlist-nav-btn" onclick="_loadPlaylistEp(window._playlist,${idx-1},'${esc(showTitle)}',document.getElementById('playerHeader'),document.getElementById('playerBody'),document.getElementById('playerInfo'))">◀ Prev Ep</button>` : ''}
+        <span class="playlist-counter">Episode ${idx+1} of ${queue.length}</span>
+        ${hasNext ? `<button class="playlist-nav-btn playlist-next" onclick="_loadPlaylistEp(window._playlist,${idx+1},'${esc(showTitle)}',document.getElementById('playerHeader'),document.getElementById('playerBody'),document.getElementById('playerInfo'))">Next Ep ▶</button>` : '<span class="playlist-counter" style="color:var(--green)">✓ Last Episode</span>'}
+      </div>
+      <div class="playlist-queue">
+        ${queue.map((e, i) => `<button class="stream-btn${i===idx?' active':''}" onclick="_loadPlaylistEp(window._playlist,${i},'${esc(showTitle)}',document.getElementById('playerHeader'),document.getElementById('playerBody'),document.getElementById('playerInfo'))">${i+1}. ${esc(e.title)}</button>`).join('')}
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Server</div>
+    <div class="player-streams">${serverBtns}</div>`;
+
+  window._playlist = queue;
+  window._loadPlaylistEp = _loadPlaylistEp;
+
+  if (hasNext) {
+    const nep = queue[idx + 1];
+    prefetchStream(nep.subjectId, nep.season, nep.episode);
+  }
 }
 
 // ===== PLAYER =====
