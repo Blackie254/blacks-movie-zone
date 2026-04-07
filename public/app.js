@@ -1173,20 +1173,26 @@ window.watchFullscreen = function() {
   }
 };
 
-// If user presses Escape (native fullscreen exit), also exit our custom mode
+// Sync custom fullscreen with native fullscreen changes (e.g. embed player's own fullscreen btn)
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(evt => {
   document.addEventListener(evt, () => {
     const nativeFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    if (!nativeFs && document.body.classList.contains('watch-fs-active')) {
-      _setWatchFs(false);
+    if (nativeFs) {
+      // Native fullscreen started (could be embed player's button) — activate our UI-hiding mode
+      if (document.getElementById('watchPlayerEmbed')) _setWatchFs(true);
+    } else {
+      // Native fullscreen ended — exit our custom mode too
+      if (document.body.classList.contains('watch-fs-active')) _setWatchFs(false);
     }
   });
 });
 
-// ESC key exits custom fullscreen even if native fullscreen isn't active
+// ESC key exits custom fullscreen when native fullscreen isn't involved
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.body.classList.contains('watch-fs-active')) {
     _setWatchFs(false);
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit && (document.fullscreenElement || document.webkitFullscreenElement)) exit.call(document).catch(() => {});
   }
 });
 

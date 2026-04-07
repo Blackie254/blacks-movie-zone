@@ -949,14 +949,16 @@ body.watch-fs-active #watchPlayerEmbed video {
   aspect-ratio: unset !important;
   border: none !important;
 }
-/* Hide all page UI when fullscreen is active */
+/* Hide all page UI when fullscreen is active — targeted by both class and ID */
 body.watch-fs-active #navbar,
+body.watch-fs-active .mobile-menu,
 body.watch-fs-active .watch-controls-bar,
+body.watch-fs-active #watchControls,
 body.watch-fs-active .watch-info-row,
+body.watch-fs-active #watchInfoRow,
 body.watch-fs-active .watch-section,
 body.watch-fs-active footer,
-body.watch-fs-active #toast,
-body.watch-fs-active .mobile-menu { display: none !important; }
+body.watch-fs-active #toast { display: none !important; }
 
 /* Exit fullscreen button — hidden by default, visible in fullscreen */
 .watch-fs-exit {
