@@ -101,6 +101,23 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.06); }
 .nav-link.active { color: var(--text); background: rgba(108,99,255,0.15); }
+.nav-link-new {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: linear-gradient(135deg, #6c63ff, #a855f7);
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-size: 12.5px !important;
+  padding: 6px 13px !important;
+  border-radius: 100px !important;
+  box-shadow: 0 0 12px rgba(108,99,255,0.4);
+  transition: box-shadow 0.2s, opacity 0.2s, transform 0.2s !important;
+}
+.nav-link-new:hover {
+  opacity: 0.92; transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(108,99,255,0.6);
+  background: linear-gradient(135deg, #6c63ff, #a855f7) !important;
+}
+.nav-link-new.active { background: linear-gradient(135deg, #5a52e0, #9333ea) !important; box-shadow: 0 0 18px rgba(108,99,255,0.5); }
 .nav-right { display: flex; align-items: center; gap: 10px; }
 
 /* Hamburger */

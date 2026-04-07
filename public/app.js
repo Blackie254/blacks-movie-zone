@@ -203,7 +203,7 @@ function makeNtCard(item) {
   const title = item.title || item.name || 'Untitled';
   const poster = item.poster || item.cover || item.thumbnail || '';
   const year = item.year || item.releaseYear || '';
-  const path = item.path || item.detailPath || '';
+  const path = item.path || item.detailPath || item.slug || item.url || '';
   return `
   <div class="card" onclick="openNtDetail('${esc(path)}','${esc(title)}')">
     <div class="card-img-wrap">
@@ -451,7 +451,7 @@ async function renderHome() {
   const rankItems = ranking?.data?.subjectList || [];
   const mItems = movies?.data?.subjectList || movies?.data?.items || [];
   const sItems = shows?.data?.subjectList || shows?.data?.items || [];
-  const ntItems = newArrivals?.data?.list || newArrivals?.data?.items || newArrivals?.list || [];
+  const ntItems = Array.isArray(newArrivals?.data) ? newArrivals.data : (newArrivals?.data?.list || newArrivals?.list || []);
 
   if (trendList.length) buildHero(trendList.slice(0, 6));
 
@@ -690,7 +690,9 @@ async function renderNewArrivals() {
   ${renderFooter()}`);
 
   const data = await api('newtoxic/latest', { page: 1 });
-  const items = data?.data?.list || data?.data?.items || data?.list || [];
+  const items = (Array.isArray(data?.data) ? data.data : [])
+    .concat(Array.isArray(data?.data?.list) ? data.data.list : [])
+    .concat(Array.isArray(data?.list) ? data.list : []);
   const sec = app.querySelector('.section');
   if (sec) sec.innerHTML = items.length
     ? `<div class="cards-grid fade-in">${items.map(makeNtCard).join('')}</div>`
