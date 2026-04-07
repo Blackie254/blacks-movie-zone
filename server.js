@@ -376,15 +376,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
 
   // Build servers from reliable embed providers
-  let servers = buildEmbedServers(imdbId, isShow, s, e);
-
-  const detailPath = d.detailPath || '';
-  const aoneUrl = detailPath ? `https://www.aoneroom.com/videos/${detailPath}` : null;
-
-  // If no IMDb ID found, fall back to Blizzflix Direct (aoneroom) if available
-  if (!servers.length && aoneUrl) {
-    servers = [{ label: 'Blizzflix Direct', type: 'embed', badge: 'HD', url: aoneUrl }];
-  }
+  const servers = buildEmbedServers(imdbId, isShow, s, e);
 
   let previewUrl = null;
   if (d.trailerUrl) {
@@ -408,7 +400,6 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     title: d.title,
     imdbId,
     servers,
-    aoneUrl,
     previewUrl,
     tracks,
     isShow,
