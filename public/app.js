@@ -1193,7 +1193,7 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow,
     return;
   }
 
-  const { previewUrl, tracks } = watchData;
+  const { previewUrl } = watchData;
   const allServers = watchData.servers && watchData.servers.length ? watchData.servers : [];
 
   if (!allServers.length) {
@@ -1215,20 +1215,11 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow,
     `<button class="watch-srv-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge">${esc(s.badge)}</span>` : ''}</button>`
   ).join('');
 
-  const dubBtns = tracks && tracks.length > 1
-    ? `<div class="watch-ctrl-divider"></div>
-       <div class="watch-ctrl-group">
-         <span class="watch-ctrl-label">Language</span>
-         ${tracks.map(t => `<button class="watch-srv-btn${t.original?' active':''}">${esc(t.label)}</button>`).join('')}
-       </div>`
-    : '';
-
   controls.innerHTML = `
     <div class="watch-ctrl-group">
       <span class="watch-ctrl-label">Server</span>
       ${serverBtns}
     </div>
-    ${dubBtns}
     <div class="watch-ctrl-end">
       ${previewUrl ? `<button class="watch-srv-btn" onclick="switchWatchToPreview('${esc(previewUrl)}')">▶ Trailer</button>` : ''}
       <button class="watch-srv-btn watch-fs-btn" onclick="watchFullscreen()" title="Fullscreen">
@@ -1481,7 +1472,7 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     return;
   }
 
-  const { previewUrl, tracks } = watchData;
+  const { previewUrl } = watchData;
   const allServers = watchData.servers && watchData.servers.length ? watchData.servers : [];
 
   if (!allServers.length && !previewUrl) {
@@ -1501,15 +1492,9 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
       `<button class="stream-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge">${esc(s.badge)}</span>` : ''}</button>`
     ).join('');
 
-    const dubBtns = tracks && tracks.length > 1
-      ? `<div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:10px;margin-bottom:6px">Language</div>
-         <div class="player-streams">${tracks.map(t => `<button class="stream-btn${t.original?' active':''}">${esc(t.label)}</button>`).join('')}</div>`
-      : '';
-
     info.innerHTML = `
       <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Server</div>
-      <div class="player-streams">${serverBtns}</div>
-      ${dubBtns}`;
+      <div class="player-streams">${serverBtns}</div>`;
     return;
   }
 

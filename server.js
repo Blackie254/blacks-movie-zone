@@ -288,12 +288,12 @@ function buildEmbedServers(imdbId, isShow, s, e) {
 // ===== CURATED LIVE CHANNELS =====
 // type: 'hls' = HLS stream via proxy, 'embed' = direct iframe embed
 const LIVE_CHANNELS = [
-  { id: 'fightnet', name: 'Fight Network', category: 'wrestling', badge: '🏆', desc: 'Combat sports & wrestling 24/7', type: 'hls', url: 'https://d12a2vxqkkh1bo.cloudfront.net/hls/main.m3u8' },
-  { id: 'dazncombat', name: 'DAZN Combat', category: 'wrestling', badge: '⚔️', desc: 'Boxing, MMA & combat sports', type: 'hls', url: 'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
-  { id: 'fightbox', name: 'FightBox HD', category: 'wrestling', badge: '🥋', desc: 'Fights, MMA & combat sports', type: 'hls', url: 'https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc002/fightboxhdraw/fightboxhdraw.m3u8' },
-  { id: 'impact', name: 'Impact Wrestling', category: 'wrestling', badge: '🥊', desc: 'Impact Wrestling Network Live', type: 'hls', url: 'https://edge1.lifestreamcdn.com/live/impactroku1/index.m3u8' },
-  { id: 'wwe-yt', name: 'WWE Network', category: 'wrestling', badge: '🎯', desc: 'WWE highlights & content', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCJ5v_MCY6GNUBTO8-D3XoAg&autoplay=1' },
-  { id: 'ufc-yt', name: 'UFC Fight Pass', category: 'wrestling', badge: '🥊', desc: 'UFC fights & MMA action', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCvgfXK4nTYKudb0rFR6noLA&autoplay=1' },
+  { id: 'wwe-yt', name: 'WWE', category: 'wrestling', badge: '🎯', desc: 'WWE highlights, events & content', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCJ5v_MCY6GNUBTO8-D3XoAg&autoplay=1' },
+  { id: 'ufc-yt', name: 'UFC', category: 'wrestling', badge: '🥊', desc: 'UFC fights & MMA action', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCvgfXK4nTYKudb0rFR6noLA&autoplay=1' },
+  { id: 'aew-yt', name: 'AEW Wrestling', category: 'wrestling', badge: '⚡', desc: 'All Elite Wrestling live & events', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCFDd4QMFALYAOq1cJqXQwcA&autoplay=1' },
+  { id: 'bellator-yt', name: 'Bellator MMA', category: 'wrestling', badge: '🏆', desc: 'Bellator MMA fights & events', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCM0ZRQiPcB1g3cVNEMfRhZA&autoplay=1' },
+  { id: 'prowrestling-yt', name: 'Pro Wrestling', category: 'wrestling', badge: '💪', desc: 'Pro wrestling action & highlights', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCZ_LWCpk9lK4T8VIE4RMWPQ&autoplay=1' },
+  { id: 'combat-sports-yt', name: 'Combat Sports', category: 'wrestling', badge: '⚔️', desc: 'Boxing, kickboxing & combat sports', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCRifB4Y8DBTnuV6B1H8KJKQ&autoplay=1' },
   { id: 'espnocho', name: 'ESPN8: The Ocho', category: 'sports', badge: '🏆', desc: 'Almost a sport — it is on ESPN8', type: 'hls', url: 'https://d3b6q2ou5kp8ke.cloudfront.net/ESPNTheOcho.m3u8' },
   { id: 'cbssports', name: 'CBS Sports HQ', category: 'sports', badge: '🎯', desc: 'CBS Sports 24/7 news & events', type: 'hls', url: 'https://cbsn-us.cbsnews.com/cbnshd/master.m3u8' },
   { id: 'cbsgolazo', name: 'CBS Golazo', category: 'sports', badge: '⚽', desc: 'Soccer news & highlights', type: 'hls', url: 'https://proped3fhg87.airspace-cdn.cbsivideo.com/golazo-live-dai/master/golazo-live.m3u8' },
