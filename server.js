@@ -258,7 +258,7 @@ function buildEmbedServers(imdbId, isShow, s, e) {
 
   if (isShow) {
     return [
-      { label: 'Blizzflix 1',  type: 'embed', badge: 'HD',  url: `https://vidsrc.xyz/embed/tv/${imdbId}/${s}/${e}` },
+      { label: 'Blizzflix 1',  type: 'embed', badge: 'HD',  url: `https://vidsrc.to/embed/tv/${imdbId}/${s}/${e}` },
       { label: 'Blizzflix 2',  type: 'embed', badge: 'HD',  url: `https://player.videasy.net/tv/${imdbId}/${s}/${e}` },
       { label: 'Blizzflix 3',  type: 'embed', badge: '4K',  url: `https://embed.su/embed/tv/${imdbId}/${s}/${e}` },
       { label: 'Blizzflix 4',  type: 'embed', badge: 'HD',  url: `https://vidsrc.net/embed/tv?imdb=${imdbId}&season=${s}&episode=${e}` },
