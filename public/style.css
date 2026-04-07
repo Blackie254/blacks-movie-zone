@@ -580,6 +580,15 @@ footer {
 .footer-link { font-size: 13px; color: var(--text3); transition: color 0.18s; }
 .footer-link:hover { color: var(--text); }
 .footer-copy { font-size: 12px; color: var(--text3); }
+.footer-contact { display: flex; gap: 10px; align-items: center; }
+.footer-contact-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  text-decoration: none; transition: opacity 0.18s, transform 0.15s;
+}
+.footer-contact-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.footer-whatsapp { background: #25D366; color: #fff; }
+.footer-email { background: rgba(108,99,255,0.18); color: var(--primary-light); border: 1px solid rgba(108,99,255,0.35); }
 
 /* ===== PLAYER OVERLAY ===== */
 .player-overlay {
@@ -893,6 +902,7 @@ footer {
   .page-header { padding: 36px 18px 18px; }
   footer { flex-direction: column; align-items: center; padding: 32px 20px; text-align: center; }
   .footer-links { flex-wrap: wrap; justify-content: center; gap: 16px; }
+  .footer-contact { justify-content: center; }
 }
 @media (max-width: 580px) {
   .navbar { padding: 0 14px; }
