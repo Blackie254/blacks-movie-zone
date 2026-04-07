@@ -1152,29 +1152,42 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow,
 }
 
 // ===== WATCH PAGE FULLSCREEN =====
+function _setWatchFs(active) {
+  document.body.classList.toggle('watch-fs-active', active);
+  const btn = document.querySelector('.watch-fs-btn');
+  if (btn) btn.innerHTML = active
+    ? `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg> Exit`
+    : `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> Fullscreen`;
+}
+
 window.watchFullscreen = function() {
-  const section = document.getElementById('watchPlayerEmbed');
-  if (!section) return;
-  const el = document.fullscreenElement || document.webkitFullscreenElement;
-  if (el) {
-    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  const isFs = document.body.classList.contains('watch-fs-active');
+  _setWatchFs(!isFs);
+  if (!isFs) {
+    // Also try native browser fullscreen on the page for immersion (hides browser chrome)
+    const req = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
+    if (req) req.call(document.documentElement).catch(() => {});
   } else {
-    const req = section.requestFullscreen || section.webkitRequestFullscreen;
-    if (req) req.call(section);
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit && (document.fullscreenElement || document.webkitFullscreenElement)) exit.call(document).catch(() => {});
   }
 };
 
-['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'].forEach(evt => {
+// If user presses Escape (native fullscreen exit), also exit our custom mode
+['fullscreenchange', 'webkitfullscreenchange'].forEach(evt => {
   document.addEventListener(evt, () => {
-    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
-    document.body.classList.toggle('is-fullscreen', isFs);
-    const btn = document.querySelector('.watch-fs-btn');
-    if (btn) {
-      btn.innerHTML = isFs
-        ? `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg> Exit`
-        : `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> Fullscreen`;
+    const nativeFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (!nativeFs && document.body.classList.contains('watch-fs-active')) {
+      _setWatchFs(false);
     }
   });
+});
+
+// ESC key exits custom fullscreen even if native fullscreen isn't active
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('watch-fs-active')) {
+    _setWatchFs(false);
+  }
 });
 
 window.switchWatchToPreview = function(url) {

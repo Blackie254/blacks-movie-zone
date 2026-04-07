@@ -917,43 +917,68 @@ footer {
   .staff-name { font-size: 26px; }
 }
 
-/* ===== FULLSCREEN MODE — hide all UI, show only player ===== */
-body.is-fullscreen #navbar,
-body.is-fullscreen .watch-controls-bar,
-body.is-fullscreen .watch-info-row,
-body.is-fullscreen .watch-section,
-body.is-fullscreen footer,
-body.is-fullscreen #toast { display: none !important; }
+/* ===== CUSTOM FULLSCREEN MODE ===== */
 
-/* Watch page: stretch player to fill entire screen */
-#watchPlayerEmbed:fullscreen,
-#watchPlayerEmbed:-webkit-full-screen,
-#watchPlayerEmbed:-moz-full-screen {
+/* Player expands to cover the entire viewport */
+body.watch-fs-active {
+  overflow: hidden;
+}
+body.watch-fs-active #watchPlayerEmbed {
+  position: fixed !important;
+  inset: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  background: #000;
+  z-index: 99999 !important;
+  background: #000 !important;
 }
-#watchPlayerEmbed:fullscreen iframe,
-#watchPlayerEmbed:-webkit-full-screen iframe,
-#watchPlayerEmbed:-moz-full-screen iframe,
-#watchPlayerEmbed:fullscreen video,
-#watchPlayerEmbed:-webkit-full-screen video,
-#watchPlayerEmbed:-moz-full-screen video {
+/* Inner wrapper div fills the container */
+body.watch-fs-active #watchPlayerEmbed > div {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: #000 !important;
+}
+/* iframe and video fill everything — override inline aspect-ratio */
+body.watch-fs-active #watchPlayerEmbed iframe,
+body.watch-fs-active #watchPlayerEmbed video {
+  position: absolute !important;
+  inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
   aspect-ratio: unset !important;
-  border: none;
+  border: none !important;
 }
-#watchPlayerEmbed:fullscreen > div,
-#watchPlayerEmbed:-webkit-full-screen > div,
-#watchPlayerEmbed:-moz-full-screen > div {
-  width: 100% !important;
-  height: 100% !important;
-}
+/* Hide all page UI when fullscreen is active */
+body.watch-fs-active #navbar,
+body.watch-fs-active .watch-controls-bar,
+body.watch-fs-active .watch-info-row,
+body.watch-fs-active .watch-section,
+body.watch-fs-active footer,
+body.watch-fs-active #toast,
+body.watch-fs-active .mobile-menu { display: none !important; }
 
-/* Modal player fullscreen — loading overlay takes full space */
-.player-container:fullscreen > div,
-.player-container:-webkit-full-screen > div,
-.player-container:-moz-full-screen > div { width: 100%; height: 100%; }
+/* Exit fullscreen button — hidden by default, visible in fullscreen */
+.watch-fs-exit {
+  display: none;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100001;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(6px);
+  transition: background 0.2s;
+}
+.watch-fs-exit:hover { background: rgba(108,99,255,0.85); border-color: var(--primary); }
+body.watch-fs-active .watch-fs-exit { display: flex; }
 
 .watch-fs-btn { display: flex; align-items: center; gap: 6px; }
