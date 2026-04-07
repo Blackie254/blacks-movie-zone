@@ -868,6 +868,8 @@ async function fetchSearch(reset) {
 
 // ===== DETAIL (watch page) =====
 async function renderDetail(id) {
+  _currentShowId = id;
+  _currentSeasonNum = 1;
   prefetchStream(id);
 
   setApp(`
@@ -972,7 +974,7 @@ async function renderDetail(id) {
         <div class="spinner-wrap" style="min-height:140px"><div class="spinner"></div></div>
       </div>
     </div>`);
-    loadSeasonEpisodes(id, seasons[0].seasonId || seasons[0].id || id);
+    loadSeasonEpisodes(id, seasons[0].seasonId || seasons[0].id || id, 1);
   }
 
   if (cast.length) {
@@ -1002,6 +1004,8 @@ async function renderDetail(id) {
 
 // ===== PLAYER STATE (shared by both modal and detail page players) =====
 const _ps = { servers: [], idx: 0, autoTimer: null, context: 'watch' };
+let _currentShowId = null;
+let _currentSeasonNum = 1;
 
 function _clearAutoTimer() { if (_ps.autoTimer) { clearTimeout(_ps.autoTimer); _ps.autoTimer = null; } }
 
@@ -1154,43 +1158,56 @@ window.switchDubLink = function(url, btn) {
 };
 
 window.loadSeason = function(subjectId, seasonId, seasonNum, btn) {
+  _currentShowId = subjectId;
+  _currentSeasonNum = seasonNum || 1;
   document.querySelectorAll('.season-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   fill('episodesGrid', `<div class="spinner-wrap" style="min-height:140px"><div class="spinner"></div></div>`);
-  loadSeasonEpisodes(subjectId, seasonId);
+  loadSeasonEpisodes(subjectId, seasonId, _currentSeasonNum);
 };
 
-async function loadSeasonEpisodes(subjectId, seasonId) {
+async function loadSeasonEpisodes(subjectId, seasonId, seasonNum) {
+  const sNum = seasonNum || _currentSeasonNum || 1;
   const data = await api('play', { subjectId: seasonId || subjectId });
   const episodes = data?.data?.episodeList || data?.data?.episodes || [];
   const grid = document.getElementById('episodesGrid');
   if (!grid) return;
   if (!episodes.length) { grid.innerHTML = emptyHtml('📺', 'No episodes found'); return; }
-  grid.innerHTML = `<div class="episodes-grid fade-in">${episodes.map(ep => `
-  <div class="episode-card" onclick="openPlayerEpisode('${ep.subjectId||ep.id}','${esc(ep.title||'Episode')}')" onmouseenter="prefetchStream('${ep.subjectId||ep.id}')">
+  grid.innerHTML = `<div class="episodes-grid fade-in">${episodes.map((ep, i) => {
+    const epNum = ep.index || ep.episode || (i + 1);
+    return `
+  <div class="episode-card" onclick="openPlayerEpisode('${subjectId}','${esc(ep.title||'Episode')}',${sNum},${epNum})" onmouseenter="prefetchStream('${subjectId}',${sNum},${epNum})">
     ${ep.cover?.url ? `<img class="ep-thumb" src="${ep.cover.url}" alt="" onerror="this.style.background='var(--bg3)'" loading="lazy" />` : `<div class="ep-thumb" style="background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:22px">🎬</div>`}
     <div class="ep-info">
-      <div class="ep-num">Episode ${ep.index||ep.episode||''}</div>
+      <div class="ep-num">Episode ${epNum}</div>
       <div class="ep-title">${esc(ep.title||'Episode')}</div>
       <div class="ep-desc">${esc(ep.description||'')}</div>
     </div>
     <div class="ep-play-icon">
       <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
     </div>
-  </div>`).join('')}</div>`;
+  </div>`;
+  }).join('')}</div>`;
 }
 
 // ===== PLAYER =====
 const streamCache = new Map();
 
-function prefetchStream(subjectId) {
-  if (!subjectId || streamCache.has(subjectId)) return;
-  streamCache.set(subjectId, fetch(`/proxy/watch?subjectId=${subjectId}`).then(r => r.json()));
+function _streamKey(subjectId, season, episode) {
+  return season ? `${subjectId}:${season}:${episode}` : subjectId;
+}
+
+function prefetchStream(subjectId, season, episode) {
+  const key = _streamKey(subjectId, season, episode);
+  if (!subjectId || streamCache.has(key)) return;
+  const params = new URLSearchParams({ subjectId });
+  if (season) { params.set('season', season); params.set('episode', episode); }
+  streamCache.set(key, fetch(`/proxy/watch?${params}`).then(r => r.json()));
 }
 window.prefetchStream = prefetchStream;
-window.openPlayerEpisode = (id, title) => openPlayer(id, title);
+window.openPlayerEpisode = (id, title, season, episode) => openPlayer(id, title, season, episode);
 
-window.openPlayer = async function(subjectId, title) {
+window.openPlayer = async function(subjectId, title, season, episode) {
   const overlay = document.getElementById('playerOverlay');
   const header = document.getElementById('playerHeader');
   const body = document.getElementById('playerBody');
@@ -1201,8 +1218,9 @@ window.openPlayer = async function(subjectId, title) {
   info.innerHTML = '';
   body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
 
-  if (!streamCache.has(subjectId)) prefetchStream(subjectId);
-  const watchData = await streamCache.get(subjectId);
+  const key = _streamKey(subjectId, season, episode);
+  if (!streamCache.has(key)) prefetchStream(subjectId, season, episode);
+  const watchData = await streamCache.get(key);
   renderPlayerContent(body, info, subjectId, title, watchData);
 };
 
