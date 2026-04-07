@@ -287,37 +287,76 @@ function buildEmbedServers(imdbId, isShow, s, e) {
 
 // ===== CURATED LIVE CHANNELS =====
 const LIVE_CHANNELS = [
-  { id: 'tna', name: 'TNA Wrestling', category: 'wrestling', badge: '🤼', desc: 'TNA / Impact Wrestling 24/7', url: 'https://d39g1vxj2ef6in.cloudfront.net/v1/master/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod-rakuten-stitched/master.m3u8?ads.xumo_channelId=88883039' },
-  { id: 'impact', name: 'Impact Network', category: 'wrestling', badge: '🥊', desc: 'Impact Wrestling Live', url: 'https://edge1.lifestreamcdn.com/live/impactroku1/index.m3u8' },
-  { id: 'fightnet', name: 'Fight Network', category: 'wrestling', badge: '🏆', desc: 'Combat sports & wrestling', url: 'https://d12a2vxqkkh1bo.cloudfront.net/hls/main.m3u8' },
+  { id: 'fightnet', name: 'Fight Network', category: 'wrestling', badge: '🏆', desc: 'Combat sports & wrestling 24/7', url: 'https://d12a2vxqkkh1bo.cloudfront.net/hls/main.m3u8' },
+  { id: 'dazncombat', name: 'DAZN Combat', category: 'wrestling', badge: '⚔️', desc: 'Boxing, MMA & combat sports', url: 'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
   { id: 'fightbox', name: 'FightBox HD', category: 'wrestling', badge: '🥋', desc: 'Fights, MMA & combat sports', url: 'https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc002/fightboxhdraw/fightboxhdraw.m3u8' },
-  { id: 'dazncombat', name: 'DAZN Combat', category: 'wrestling', badge: '⚔️', desc: 'Combat sports on DAZN', url: 'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
-  { id: 'hardknocks', name: 'Hard Knocks', category: 'wrestling', badge: '💪', desc: 'Hard Knocks Fighting Championship', url: 'https://d39g1vxj2ef6in.cloudfront.net/v1/master/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod-rakuten-stitched/master.m3u8?ads.xumo_channelId=88883037' },
-  { id: 'bein', name: 'beIN SPORTS XTRA', category: 'sports', badge: '⚽', desc: 'Premium sports from beIN', url: 'https://amg01334-beinsportsllc-beinxtra-samsungau-eiyvc.amagi.tv/playlist/amg01334-beinsportsllc-beinxtra-samsungau/playlist.m3u8' },
-  { id: 'espnocho', name: 'ESPN8: The Ocho', category: 'sports', badge: '🏆', desc: 'If it is almost a sport, it is on ESPN8', url: 'https://d3b6q2ou5kp8ke.cloudfront.net/ESPNTheOcho.m3u8' },
+  { id: 'impact', name: 'Impact Wrestling', category: 'wrestling', badge: '🥊', desc: 'Impact Wrestling Network Live', url: 'https://edge1.lifestreamcdn.com/live/impactroku1/index.m3u8' },
+  { id: 'espnocho', name: 'ESPN8: The Ocho', category: 'sports', badge: '🏆', desc: 'Almost a sport — it is on ESPN8', url: 'https://d3b6q2ou5kp8ke.cloudfront.net/ESPNTheOcho.m3u8' },
   { id: 'cbssports', name: 'CBS Sports HQ', category: 'sports', badge: '🎯', desc: 'CBS Sports 24/7 news & events', url: 'https://propee33f9c2.airspace-cdn.cbsivideo.com/index.m3u8' },
   { id: 'cbsgolazo', name: 'CBS Golazo', category: 'sports', badge: '⚽', desc: 'Soccer news & highlights', url: 'https://proped3fhg87.airspace-cdn.cbsivideo.com/golazo-live-dai/master/golazo-live.m3u8' },
+  { id: 'bein', name: 'beIN SPORTS XTRA', category: 'sports', badge: '🏅', desc: 'Premium sports from beIN', url: 'https://amg01334-beinsportsllc-beinxtra-samsungau-eiyvc.amagi.tv/playlist/amg01334-beinsportsllc-beinxtra-samsungau/playlist.m3u8' },
   { id: 'ddsports', name: 'DD Sports India', category: 'sports', badge: '🏏', desc: 'Cricket, kabaddi & more', url: 'https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/b17adfe543354fdd8d189b110617cddd/index.m3u8' },
   { id: 'abcnews1', name: 'ABC News Live', category: 'news', badge: '📺', desc: 'Breaking news 24/7', url: 'https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master_400.m3u8' },
-  { id: 'abcnews2', name: 'ABC News Live 2', category: 'news', badge: '📺', desc: 'ABC News second channel', url: 'https://abcnews-streams.akamaized.net/hls/live/2023561/abcnewshudson2/master_400.m3u8' },
-  { id: 'cbcnews', name: 'CBC News', category: 'news', badge: '🍁', desc: 'Canada\'s public news network', url: 'https://nn.geo.cbc.ca/hls/cbc-1080.m3u8' },
   { id: 'bloomberg', name: 'Bloomberg TV', category: 'news', badge: '📈', desc: 'Business & financial news', url: 'https://bloombergtv-free.akamaized.net/live/bloomberg-us/master.m3u8' },
-  { id: 'comedy-central', name: 'Comedy Central', category: 'comedy', badge: '😂', desc: 'Stand-up & comedy shows', url: 'https://jmp2.uk/plu-81.m3u8' },
+  { id: 'dwnews', name: 'DW News', category: 'news', badge: '🌍', desc: 'Deutsche Welle international news', url: 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/stream01/streamPlaylist.m3u8' },
+  { id: 'aljaz', name: 'Al Jazeera English', category: 'news', badge: '🌐', desc: 'Al Jazeera global news 24/7', url: 'https://live-hls-web-aje.getaj.net/AJE/01.m3u8' },
+  { id: 'france24', name: 'France 24 English', category: 'news', badge: '🗼', desc: 'French international news in English', url: 'https://f24hls-i.akamaihd.net/hls/live/221193/F24_EN_LO_HLS/master.m3u8' },
+  { id: 'cbcnews', name: 'CBC News', category: 'news', badge: '🍁', desc: "Canada's public news network", url: 'https://nn.geo.cbc.ca/hls/cbc-1080.m3u8' },
   { id: 'standup247', name: 'Stand-Up 24/7', category: 'comedy', badge: '🎤', desc: 'Non-stop stand-up comedy', url: 'https://jmp2.uk/plu-82.m3u8' },
   { id: 'comedy-movies', name: 'Comedy Movies', category: 'comedy', badge: '🎬', desc: 'Comedy films around the clock', url: 'https://jmp2.uk/plu-163.m3u8' },
   { id: 'romcom', name: 'RomCom Channel', category: 'comedy', badge: '❤️', desc: 'Romantic comedies 24/7', url: 'https://jmp2.uk/plu-107.m3u8' },
-  { id: 'comedy-tv', name: 'Comedy.TV', category: 'comedy', badge: '📺', desc: 'Classic & modern comedy series', url: 'https://jmp2.uk/plu-178.m3u8' },
-  { id: 'pluto-classic', name: 'Classic Movies', category: 'entertainment', badge: '🎬', desc: 'Timeless classic films', url: 'https://jmp2.uk/plu-62.m3u8' },
+  { id: 'comedy-tv', name: 'Comedy TV', category: 'comedy', badge: '😄', desc: 'Classic & modern comedy series', url: 'https://jmp2.uk/plu-178.m3u8' },
+  { id: 'nasa', name: 'NASA TV', category: 'entertainment', badge: '🚀', desc: 'Live space missions & science', url: 'https://nasa-i.akamaihd.net/hls/live/253565/NASA-NTV1-HLS/master.m3u8' },
   { id: 'pluto-action', name: 'Action Movies', category: 'entertainment', badge: '💥', desc: 'Non-stop action films', url: 'https://jmp2.uk/plu-63.m3u8' },
   { id: 'pluto-horror', name: 'Horror 24/7', category: 'entertainment', badge: '👻', desc: 'Horror movies round the clock', url: 'https://jmp2.uk/plu-106.m3u8' },
-  { id: 'pluto-scifi', name: 'Sci-Fi Movies', category: 'entertainment', badge: '🚀', desc: 'Science fiction films', url: 'https://jmp2.uk/plu-64.m3u8' },
+  { id: 'pluto-scifi', name: 'Sci-Fi Movies', category: 'entertainment', badge: '🛸', desc: 'Science fiction films', url: 'https://jmp2.uk/plu-64.m3u8' },
   { id: 'pluto-crime', name: 'Crime Drama', category: 'entertainment', badge: '🔍', desc: 'Crime & thriller dramas', url: 'https://jmp2.uk/plu-195.m3u8' },
-  { id: 'pluto-kids', name: 'Kids TV', category: 'entertainment', badge: '🧒', desc: 'Family & kids programming', url: 'https://jmp2.uk/plu-100.m3u8' },
+  { id: 'pluto-classic', name: 'Classic Movies', category: 'entertainment', badge: '🎞️', desc: 'Timeless classic films', url: 'https://jmp2.uk/plu-62.m3u8' },
 ];
 
 app.get('/proxy/live-channels', (req, res) => {
   res.json({ success: true, channels: LIVE_CHANNELS });
 });
+
+// ===== LIVE TV HLS PROXY =====
+app.get('/proxy/live-stream', wrap(async (req, res) => {
+  const rawUrl = req.query.url;
+  if (!rawUrl) return res.status(400).send('Missing url');
+  let targetUrl;
+  try { targetUrl = decodeURIComponent(rawUrl); } catch { return res.status(400).send('Invalid url'); }
+
+  const upHeaders = {
+    'User-Agent': BROWSER_HEADERS['User-Agent'],
+    'Accept': '*/*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Origin': new URL(targetUrl).origin,
+  };
+
+  const upstream = await fetch(targetUrl, { headers: upHeaders, signal: AbortSignal.timeout(10000) });
+  const ct = upstream.headers.get('content-type') || '';
+
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  if (ct.includes('mpegurl') || targetUrl.includes('.m3u8') || targetUrl.includes('playlist')) {
+    const text = await upstream.text();
+    const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+    const rewritten = text.split('\n').map(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return line;
+      const absUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
+      return `/proxy/live-stream?url=${encodeURIComponent(absUrl)}`;
+    }).join('\n');
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.send(rewritten);
+  } else {
+    res.status(upstream.status);
+    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
+      const v = upstream.headers.get(h); if (v) res.setHeader(h, v);
+    });
+    const { Readable } = require('stream');
+    Readable.fromWeb(upstream.body).pipe(res);
+  }
+}));
 
 // ===== HLS-AWARE STREAM PROXY =====
 app.get('/proxy/mb-stream', wrap(async (req, res) => {

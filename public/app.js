@@ -734,21 +734,29 @@ async function renderLive() {
       `<button class="live-tab${i===0?' active':''}" onclick="setLiveTab('${c}',this)">${catLabels[c]||c}</button>`).join('');
   }
 
+  const catColors = {
+    wrestling: 'linear-gradient(135deg,#7f1d1d,#991b1b,#450a0a)',
+    sports:    'linear-gradient(135deg,#0c4a6e,#0369a1,#082f49)',
+    news:      'linear-gradient(135deg,#1e3a5f,#1d4ed8,#0f172a)',
+    comedy:    'linear-gradient(135deg,#713f12,#d97706,#451a03)',
+    entertainment: 'linear-gradient(135deg,#2e1065,#7c3aed,#1e0544)',
+  };
+
   function renderCat(cat) {
     const filtered = channels.filter(c => c.category === cat);
     fill('liveGrid', filtered.map(ch => `
-      <div class="live-card" onclick="playLiveChannel('${esc(ch.url)}','${esc(ch.name)}')">
-        <div class="live-thumb">
-          <div class="live-thumb-placeholder">${ch.badge}</div>
-          <span class="live-badge-pill">LIVE</span>
+      <div class="live-card" onclick="playLiveChannel('${esc(ch.url)}','${esc(ch.name)}','${esc(ch.category)}')">
+        <div class="live-thumb" style="background:${catColors[ch.category]||catColors.entertainment}">
+          <div class="live-thumb-emoji">${ch.badge}</div>
+          <div class="live-thumb-overlay"></div>
+          <span class="live-badge-pill"><span class="live-dot"></span>LIVE</span>
           <div class="live-play-btn">
-            <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </div>
         </div>
         <div class="live-info">
           <div class="live-name">${esc(ch.name)}</div>
           <div class="live-desc">${esc(ch.desc)}</div>
-          <div class="live-cat-tag">${catLabels[ch.category]||ch.category}</div>
         </div>
       </div>`).join(''));
   }
@@ -763,21 +771,22 @@ async function renderLive() {
   };
 }
 
-window.playLiveChannel = function(url, name) {
+window.playLiveChannel = function(url, name, category) {
+  const proxyUrl = `/proxy/live-stream?url=${encodeURIComponent(url)}`;
   const overlay = document.getElementById('playerOverlay');
   const header = document.getElementById('playerHeader');
   const body = document.getElementById('playerBody');
   const info = document.getElementById('playerInfo');
   overlay.classList.add('show');
-  header.innerHTML = `${esc(name)} <span style="font-size:10px;background:var(--red);color:white;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle;font-weight:700;letter-spacing:1px">LIVE</span>`;
+  header.innerHTML = `${esc(name)} <span style="font-size:10px;background:var(--red);color:white;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle;font-weight:700;letter-spacing:1px;display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;background:#fff;border-radius:50%;display:inline-block;animation:livePulse 1.4s ease-in-out infinite"></span>LIVE</span>`;
   info.innerHTML = '';
   body.innerHTML = `
     <div style="position:relative;background:#000;line-height:0">
       <div id="liveLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#08080f;z-index:2">
         <div class="spinner"></div>
-        <div style="color:var(--text3);font-size:13px">Connecting to stream…</div>
+        <div style="color:var(--text3);font-size:13px">Connecting to live stream…</div>
       </div>
-      <video id="livePlayer" controls autoplay playsinline crossorigin="anonymous"
+      <video id="livePlayer" controls autoplay playsinline
         style="width:100%;max-height:64vh;display:block;background:#000;opacity:0;transition:opacity 0.5s">
       </video>
     </div>`;
@@ -788,22 +797,25 @@ window.playLiveChannel = function(url, name) {
   function onReady() { if (loading) loading.style.display = 'none'; video.style.opacity = '1'; }
   video.addEventListener('playing', onReady, { once: true });
   video.addEventListener('loadeddata', onReady, { once: true });
-  setTimeout(onReady, 12000);
+  setTimeout(onReady, 15000);
 
   if (window.Hls && Hls.isSupported()) {
-    const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-    hls.loadSource(url);
+    if (video._hls) { video._hls.destroy(); }
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: true, maxBufferLength: 30 });
+    hls.loadSource(proxyUrl);
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
     hls.on(Hls.Events.ERROR, (_, d) => {
-      if (d.fatal && loading) loading.innerHTML = `<div style="color:var(--text3);font-size:14px;text-align:center;padding:20px">⚠️ Stream unavailable<br><span style="font-size:11px;opacity:0.6">Try a different channel</span></div>`;
+      if (d.fatal) {
+        if (loading) loading.innerHTML = `<div style="color:var(--text3);font-size:14px;text-align:center;padding:20px;line-height:1.6">📡 Stream unavailable<br><span style="font-size:12px;opacity:0.6">This channel may be offline or geo-restricted.<br>Try a different channel.</span></div>`;
+      }
     });
     video._hls = hls;
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = url;
+    video.src = proxyUrl;
     video.play().catch(() => {});
   } else {
-    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>HLS not supported</h3><p>Try a different browser</p></div>`;
+    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>HLS not supported</h3><p>Try Chrome or Firefox</p></div>`;
   }
 };
 
