@@ -916,3 +916,44 @@ footer {
   .staff-avatar { width: 110px; flex: 0 0 110px; }
   .staff-name { font-size: 26px; }
 }
+
+/* ===== FULLSCREEN MODE — hide all UI, show only player ===== */
+body.is-fullscreen #navbar,
+body.is-fullscreen .watch-controls-bar,
+body.is-fullscreen .watch-info-row,
+body.is-fullscreen .watch-section,
+body.is-fullscreen footer,
+body.is-fullscreen #toast { display: none !important; }
+
+/* Watch page: stretch player to fill entire screen */
+#watchPlayerEmbed:fullscreen,
+#watchPlayerEmbed:-webkit-full-screen,
+#watchPlayerEmbed:-moz-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #000;
+}
+#watchPlayerEmbed:fullscreen iframe,
+#watchPlayerEmbed:-webkit-full-screen iframe,
+#watchPlayerEmbed:-moz-full-screen iframe,
+#watchPlayerEmbed:fullscreen video,
+#watchPlayerEmbed:-webkit-full-screen video,
+#watchPlayerEmbed:-moz-full-screen video {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: unset !important;
+  border: none;
+}
+#watchPlayerEmbed:fullscreen > div,
+#watchPlayerEmbed:-webkit-full-screen > div,
+#watchPlayerEmbed:-moz-full-screen > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Modal player fullscreen — loading overlay takes full space */
+.player-container:fullscreen > div,
+.player-container:-webkit-full-screen > div,
+.player-container:-moz-full-screen > div { width: 100%; height: 100%; }
+
+.watch-fs-btn { display: flex; align-items: center; gap: 6px; }

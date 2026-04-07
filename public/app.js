@@ -1142,8 +1142,40 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow,
     ${dubBtns}
     <div class="watch-ctrl-end">
       ${previewUrl ? `<button class="watch-srv-btn" onclick="switchWatchToPreview('${esc(previewUrl)}')">▶ Trailer</button>` : ''}
+      <button class="watch-srv-btn watch-fs-btn" onclick="watchFullscreen()" title="Fullscreen">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        Fullscreen
+      </button>
     </div>`;
 }
+
+// ===== WATCH PAGE FULLSCREEN =====
+window.watchFullscreen = function() {
+  const section = document.getElementById('watchPlayerEmbed');
+  if (!section) return;
+  const el = document.fullscreenElement || document.webkitFullscreenElement;
+  if (el) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } else {
+    const req = section.requestFullscreen || section.webkitRequestFullscreen;
+    if (req) req.call(section);
+  }
+};
+
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+    document.body.classList.toggle('is-fullscreen', isFs);
+    const btn = document.querySelector('.watch-fs-btn');
+    if (btn) {
+      btn.innerHTML = isFs
+        ? `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg> Exit`
+        : `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> Fullscreen`;
+    }
+  });
+});
 
 window.switchWatchToPreview = function(url) {
   _clearAutoTimer();
