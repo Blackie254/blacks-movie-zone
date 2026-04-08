@@ -376,16 +376,16 @@ const LIVE_CHANNELS = [
   // ── COMEDY ──────────────────────────────────────────────────────
   { id: 'comedy-central-yt', name: 'Comedy Central', category: 'comedy', badge: '🎤', desc: 'Stand-up, sketches & comedy shows', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCUsN5ZwHx2kILm84-jPDeXw&autoplay=1' },
   { id: 'netflix-joke-yt',   name: 'Netflix Is A Joke', category: 'comedy', badge: '😂', desc: 'Netflix comedy specials & clips',  type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCtinbF-Q-fVthA0qrFQTgXg&autoplay=1' },
-  { id: 'comedy-search-1',   name: 'Comedy Movies',  category: 'comedy', badge: '🎬', desc: 'Free full comedy films on YouTube', type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+comedy+movies+2024&autoplay=1' },
+  { id: 'comedy-search-1',   name: 'Comedy Movies',  category: 'comedy', badge: '🎬', desc: 'Free full comedy films on Nexuzz', type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+comedy+movies+2024&autoplay=1' },
   { id: 'romcom-search',     name: 'RomCom Channel', category: 'comedy', badge: '❤️', desc: 'Romantic comedies free & full',     type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=romantic+comedy+movies+full+free&autoplay=1' },
 
   // ── ENTERTAINMENT ───────────────────────────────────────────────
   { id: 'nasa-yt',        name: 'NASA TV',         category: 'entertainment', badge: '🚀', desc: 'Live space missions & science',      type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCVTomc35agH1LV6ghxEg3sSw&autoplay=1' },
   { id: 'discovery-yt',   name: 'Discovery',       category: 'entertainment', badge: '🔭', desc: 'Discovery Channel documentaries',    type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCWX3yGbODI3tRRQz1Br8XJA&autoplay=1' },
-  { id: 'action-search',  name: 'Action Movies',   category: 'entertainment', badge: '💥', desc: 'Free full action films on YouTube',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+action+movies+2024&autoplay=1' },
-  { id: 'horror-search',  name: 'Horror 24/7',     category: 'entertainment', badge: '👻', desc: 'Free full horror films on YouTube',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+horror+movies+2024&autoplay=1' },
-  { id: 'scifi-search',   name: 'Sci-Fi Movies',   category: 'entertainment', badge: '🛸', desc: 'Free full sci-fi films on YouTube',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+science+fiction+movies&autoplay=1' },
-  { id: 'crime-search',   name: 'Crime Drama',     category: 'entertainment', badge: '🔍', desc: 'Crime & thriller dramas on YouTube', type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=crime+thriller+drama+full+movie+free&autoplay=1' },
+  { id: 'action-search',  name: 'Action Movies',   category: 'entertainment', badge: '💥', desc: 'Free full action films on Nexuzz',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+action+movies+2024&autoplay=1' },
+  { id: 'horror-search',  name: 'Horror 24/7',     category: 'entertainment', badge: '👻', desc: 'Free full horror films on Nexuzz',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+horror+movies+2024&autoplay=1' },
+  { id: 'scifi-search',   name: 'Sci-Fi Movies',   category: 'entertainment', badge: '🛸', desc: 'Free full sci-fi films on Nexuzz',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+science+fiction+movies&autoplay=1' },
+  { id: 'crime-search',   name: 'Crime Drama',     category: 'entertainment', badge: '🔍', desc: 'Crime & thriller dramas on Nexuzz', type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=crime+thriller+drama+full+movie+free&autoplay=1' },
   { id: 'classic-search', name: 'Classic Movies',  category: 'entertainment', badge: '🎞️', desc: 'Timeless classic films, free',       type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=classic+movies+full+free+public+domain&autoplay=1' },
   { id: 'anime-yt',       name: 'Anime Live',      category: 'entertainment', badge: '🎌', desc: 'Anime episodes & films',             type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UC8-Th83bH_thdKZDJCrn88g&autoplay=1' },
 ];
@@ -498,7 +498,7 @@ app.get('/proxy/watch', wrap(async (req, res) => {
     const ytUrl = await findYouTubeEpisode(d.title, s, e);
     if (ytUrl) {
       // Insert YouTube as the last server option
-      servers = [...servers, { label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl }];
+      servers = [...servers, { label: 'Nexuzz', type: 'embed', badge: 'NX', url: ytUrl }];
     }
   }
 
