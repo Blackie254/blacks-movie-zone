@@ -8,6 +8,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
-    "express": "^4.22.1"
+    "express": "^4.22.1",
+    "yt-search": "^2.13.1"
   }
 }

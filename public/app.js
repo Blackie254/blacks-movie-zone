@@ -1212,7 +1212,7 @@ function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow,
   _mountEmbedFrame(embed, allServers[0], true);
 
   const serverBtns = allServers.map((s, i) =>
-    `<button class="watch-srv-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge">${esc(s.badge)}</span>` : ''}</button>`
+    `<button class="watch-srv-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge${s.badge==='YT'?' yt-badge':''}">${esc(s.badge)}</span>` : ''}</button>`
   ).join('');
 
   controls.innerHTML = `
@@ -1399,7 +1399,7 @@ async function _loadPlaylistEp(queue, idx, showTitle, header, body, info) {
   _mountModalEmbed(body, watchData.servers[0]);
 
   const serverBtns = watchData.servers.map((s, i) =>
-    `<button class="stream-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge">${esc(s.badge)}</span>` : ''}</button>`
+    `<button class="stream-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge${s.badge==='YT'?' yt-badge':''}">${esc(s.badge)}</span>` : ''}</button>`
   ).join('');
 
   const hasNext = idx + 1 < queue.length;
@@ -1489,7 +1489,7 @@ function renderPlayerContent(body, info, subjectId, title, watchData) {
     _mountModalEmbed(body, allServers[0]);
 
     const serverBtns = allServers.map((s, i) =>
-      `<button class="stream-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge">${esc(s.badge)}</span>` : ''}</button>`
+      `<button class="stream-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge${s.badge==='YT'?' yt-badge':''}">${esc(s.badge)}</span>` : ''}</button>`
     ).join('');
 
     info.innerHTML = `

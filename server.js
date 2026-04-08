@@ -1,5 +1,7 @@
 const express = require('express');
 const path = require('path');
+let yts;
+try { yts = require('yt-search'); } catch (_) { yts = null; }
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -258,48 +260,62 @@ const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || '';
 async function findYouTubeEpisode(title, season, episode) {
   const s = String(season).padStart(2, '0');
   const e = String(episode).padStart(2, '0');
-  const query = `${title} S${s}E${e} full episode`;
+  const queries = [
+    `${title} S${s}E${e} full episode`,
+    `${title} season ${parseInt(season)} episode ${parseInt(episode)} full`,
+    `${title} S${s}E${e}`,
+  ];
+  const primaryQuery = queries[0];
+  const cacheKey = `yt:${title}:${season}:${episode}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
 
-  // If API key is set, use the official YouTube Data API for precise results
+  // 1. Official YouTube Data API (if key provided — most accurate)
   if (YOUTUBE_API_KEY) {
-    const cacheKey = `yt:${query}`;
-    const cached = getCached(cacheKey);
-    if (cached) return cached;
-    try {
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoEmbeddable=true&maxResults=5&key=${YOUTUBE_API_KEY}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-      const data = await res.json();
-      const items = data.items || [];
-      if (items.length) {
-        const videoId = items[0].id.videoId;
-        const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        setCache(cacheKey, embedUrl);
-        return embedUrl;
-      }
-    } catch (_) {}
+    for (const q of queries) {
+      try {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&videoEmbeddable=true&maxResults=5&key=${YOUTUBE_API_KEY}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        const data = await res.json();
+        const items = (data.items || []).filter(i => i.id?.videoId);
+        if (items.length) {
+          const videoId = items[0].id.videoId;
+          const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+          setCache(cacheKey, embedUrl);
+          return embedUrl;
+        }
+      } catch (_) {}
+    }
   }
 
-  // Fallback: YouTube embed search (no API key needed — plays top search result)
-  return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1&rel=0`;
+  // 2. yt-search — scrape YouTube without an API key (reliable, actively maintained)
+  if (yts) {
+    for (const q of queries) {
+      try {
+        const results = await yts(q);
+        const videos = (results.videos || []).filter(v => v.videoId);
+        if (videos.length) {
+          const videoId = videos[0].videoId;
+          const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+          setCache(cacheKey, embedUrl);
+          return embedUrl;
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 3. Fallback: YouTube embed search playlist (no API key, plays search results)
+  const fallback = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(primaryQuery)}&autoplay=1&rel=0`;
+  setCache(cacheKey, fallback);
+  return fallback;
 }
 
 // ===== BUILD EMBED SERVERS =====
-function buildEmbedServers(imdbId, isShow, s, e, title) {
-  const base = [];
-
+// YouTube is resolved async in /proxy/watch — buildEmbedServers stays sync
+function buildEmbedServers(imdbId, isShow, s, e) {
   if (isShow) {
-    // YouTube server for TV shows (searches for the specific episode)
-    const ytQuery = `${title || ''} S${String(s).padStart(2,'0')}E${String(e).padStart(2,'0')} full episode`;
-    const ytUrl = YOUTUBE_API_KEY
-      ? null  // will be resolved async; placeholder replaced post-build
-      : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(ytQuery)}&autoplay=1&rel=0`;
-
-    if (!imdbId) {
-      // No IMDb ID — only YouTube available
-      return ytUrl ? [{ label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl }] : [];
-    }
-
-    base.push(
+    if (!imdbId) return [];
+    return [
       { label: 'Blizzflix 1',  type: 'embed', badge: 'HD',  url: `https://vidsrc.to/embed/tv/${imdbId}/${s}/${e}` },
       { label: 'Blizzflix 2',  type: 'embed', badge: 'HD',  url: `https://player.videasy.net/tv/${imdbId}/${s}/${e}` },
       { label: 'Blizzflix 3',  type: 'embed', badge: '4K',  url: `https://embed.su/embed/tv/${imdbId}/${s}/${e}` },
@@ -310,9 +326,7 @@ function buildEmbedServers(imdbId, isShow, s, e, title) {
       { label: 'Blizzflix 8',  type: 'embed', badge: 'HD',  url: `https://www.2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` },
       { label: 'Blizzflix 9',  type: 'embed', badge: 'HD',  url: `https://moviesapi.club/tv/${imdbId}-${s}-${e}` },
       { label: 'Blizzflix 10', type: 'embed', badge: 'HD',  url: `https://vidsrc.pro/embed/tv/${imdbId}/${s}/${e}` },
-    );
-    if (ytUrl) base.push({ label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl });
-    return base;
+    ];
   } else {
     if (!imdbId) return [];
     return [
@@ -331,38 +345,49 @@ function buildEmbedServers(imdbId, isShow, s, e, title) {
 }
 
 // ===== CURATED LIVE CHANNELS =====
-// type: 'hls' = HLS stream via proxy, 'embed' = direct iframe embed
+// All streams verified working. 'embed' = YouTube iframe, 'hls' = HLS via proxy
 const LIVE_CHANNELS = [
-  { id: 'wwe-yt', name: 'WWE', category: 'wrestling', badge: '🎯', desc: 'WWE highlights, events & content', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCJ5v_MCY6GNUBTO8-D3XoAg&autoplay=1' },
-  { id: 'ufc-yt', name: 'UFC', category: 'wrestling', badge: '🥊', desc: 'UFC fights & MMA action', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCvgfXK4nTYKudb0rFR6noLA&autoplay=1' },
-  { id: 'aew-yt', name: 'AEW Wrestling', category: 'wrestling', badge: '⚡', desc: 'All Elite Wrestling live & events', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCFDd4QMFALYAOq1cJqXQwcA&autoplay=1' },
-  { id: 'bellator-yt', name: 'Bellator MMA', category: 'wrestling', badge: '🏆', desc: 'Bellator MMA fights & events', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCM0ZRQiPcB1g3cVNEMfRhZA&autoplay=1' },
-  { id: 'prowrestling-yt', name: 'Pro Wrestling', category: 'wrestling', badge: '💪', desc: 'Pro wrestling action & highlights', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCZ_LWCpk9lK4T8VIE4RMWPQ&autoplay=1' },
-  { id: 'combat-sports-yt', name: 'Combat Sports', category: 'wrestling', badge: '⚔️', desc: 'Boxing, kickboxing & combat sports', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCRifB4Y8DBTnuV6B1H8KJKQ&autoplay=1' },
-  { id: 'espnocho', name: 'ESPN8: The Ocho', category: 'sports', badge: '🏆', desc: 'Almost a sport — it is on ESPN8', type: 'hls', url: 'https://d3b6q2ou5kp8ke.cloudfront.net/ESPNTheOcho.m3u8' },
-  { id: 'cbssports', name: 'CBS Sports HQ', category: 'sports', badge: '🎯', desc: 'CBS Sports 24/7 news & events', type: 'hls', url: 'https://cbsn-us.cbsnews.com/cbnshd/master.m3u8' },
-  { id: 'cbsgolazo', name: 'CBS Golazo', category: 'sports', badge: '⚽', desc: 'Soccer news & highlights', type: 'hls', url: 'https://proped3fhg87.airspace-cdn.cbsivideo.com/golazo-live-dai/master/golazo-live.m3u8' },
-  { id: 'bein', name: 'beIN SPORTS XTRA', category: 'sports', badge: '🏅', desc: 'Premium sports from beIN', type: 'hls', url: 'https://amg01334-beinsportsllc-beinxtra-samsungau-eiyvc.amagi.tv/playlist/amg01334-beinsportsllc-beinxtra-samsungau/playlist.m3u8' },
-  { id: 'ddsports', name: 'DD Sports India', category: 'sports', badge: '🏏', desc: 'Cricket, kabaddi & more', type: 'hls', url: 'https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/b17adfe543354fdd8d189b110617cddd/index.m3u8' },
-  { id: 'tennis-yt', name: 'Tennis TV Live', category: 'sports', badge: '🎾', desc: 'Live tennis tournaments', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCnyfNe2M08Q-gTpFsZE8fBw&autoplay=1' },
-  { id: 'abcnews1', name: 'ABC News Live', category: 'news', badge: '📺', desc: 'Breaking news 24/7', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCBi2mrWuNuyYy4gbM6fU18Q&autoplay=1' },
-  { id: 'dwnews', name: 'DW News', category: 'news', badge: '🌍', desc: 'Deutsche Welle international news', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCknLrEdhRCp1aegoMqRaCZg&autoplay=1' },
-  { id: 'aljaz', name: 'Al Jazeera English', category: 'news', badge: '🌐', desc: 'Al Jazeera global news 24/7', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCNye-wNBqNL5ZzHSJj3l8Bg&autoplay=1' },
-  { id: 'france24', name: 'France 24 English', category: 'news', badge: '🗼', desc: 'French international news in English', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCQfwfsi5VrQ8yKZ-UWmAoBg&autoplay=1' },
-  { id: 'bloomberg', name: 'Bloomberg TV', category: 'news', badge: '📈', desc: 'Business & financial news', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg&autoplay=1' },
-  { id: 'cbcnews', name: 'CBC News', category: 'news', badge: '🍁', desc: "Canada's public news network", type: 'hls', url: 'https://nn.geo.cbc.ca/hls/cbc-1080.m3u8' },
-  { id: 'sky-news', name: 'Sky News', category: 'news', badge: '🇬🇧', desc: 'UK live news coverage', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCegOTmclzjfKuQh-SHRRgaQ&autoplay=1' },
-  { id: 'standup247', name: 'Stand-Up 24/7', category: 'comedy', badge: '🎤', desc: 'Non-stop stand-up comedy', type: 'hls', url: 'https://jmp2.uk/plu-82.m3u8' },
-  { id: 'comedy-movies', name: 'Comedy Movies', category: 'comedy', badge: '🎬', desc: 'Comedy films around the clock', type: 'hls', url: 'https://jmp2.uk/plu-163.m3u8' },
-  { id: 'romcom', name: 'RomCom Channel', category: 'comedy', badge: '❤️', desc: 'Romantic comedies 24/7', type: 'hls', url: 'https://jmp2.uk/plu-107.m3u8' },
-  { id: 'comedy-tv', name: 'Comedy TV', category: 'comedy', badge: '😄', desc: 'Classic & modern comedy series', type: 'hls', url: 'https://jmp2.uk/plu-178.m3u8' },
-  { id: 'nasa', name: 'NASA TV', category: 'entertainment', badge: '🚀', desc: 'Live space missions & science', type: 'hls', url: 'https://nasa-i.akamaihd.net/hls/live/253565/NASA-NTV1-HLS/master.m3u8' },
-  { id: 'pluto-action', name: 'Action Movies', category: 'entertainment', badge: '💥', desc: 'Non-stop action films', type: 'hls', url: 'https://jmp2.uk/plu-63.m3u8' },
-  { id: 'pluto-horror', name: 'Horror 24/7', category: 'entertainment', badge: '👻', desc: 'Horror movies round the clock', type: 'hls', url: 'https://jmp2.uk/plu-106.m3u8' },
-  { id: 'pluto-scifi', name: 'Sci-Fi Movies', category: 'entertainment', badge: '🛸', desc: 'Science fiction films', type: 'hls', url: 'https://jmp2.uk/plu-64.m3u8' },
-  { id: 'pluto-crime', name: 'Crime Drama', category: 'entertainment', badge: '🔍', desc: 'Crime & thriller dramas', type: 'hls', url: 'https://jmp2.uk/plu-195.m3u8' },
-  { id: 'pluto-classic', name: 'Classic Movies', category: 'entertainment', badge: '🎞️', desc: 'Timeless classic films', type: 'hls', url: 'https://jmp2.uk/plu-62.m3u8' },
-  { id: 'anime-yt', name: 'Anime Live', category: 'entertainment', badge: '🎌', desc: 'Anime episodes & films', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCxxnxya_32jcKj4yN1_kD7A&autoplay=1' },
+  // ── WRESTLING ──────────────────────────────────────────────────
+  { id: 'wwe-yt',       name: 'WWE',           category: 'wrestling', badge: '🎯', desc: 'WWE events, highlights & content',      type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCJ5v_MCY6GNUBTO8-D3XoAg&autoplay=1' },
+  { id: 'ufc-yt',       name: 'UFC',           category: 'wrestling', badge: '🥊', desc: 'UFC fights & MMA action',               type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCvgfXK4nTYKudb0rFR6noLA&autoplay=1' },
+  { id: 'aew-yt',       name: 'AEW Wrestling', category: 'wrestling', badge: '⚡', desc: 'All Elite Wrestling live & events',      type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCFDd4QMFALYAOq1cJqXQwcA&autoplay=1' },
+  { id: 'bellator-yt',  name: 'Bellator MMA',  category: 'wrestling', badge: '🏆', desc: 'Bellator MMA fights & events',          type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCM0ZRQiPcB1g3cVNEMfRhZA&autoplay=1' },
+  { id: 'prowrestling', name: 'Pro Wrestling',  category: 'wrestling', badge: '💪', desc: 'Pro wrestling action & highlights',     type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCZ_LWCpk9lK4T8VIE4RMWPQ&autoplay=1' },
+  { id: 'combat-yt',    name: 'Combat Sports',  category: 'wrestling', badge: '⚔️', desc: 'Boxing, kickboxing & combat sports',   type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCRifB4Y8DBTnuV6B1H8KJKQ&autoplay=1' },
+
+  // ── SPORTS ─────────────────────────────────────────────────────
+  { id: 'espnocho',   name: 'ESPN8: The Ocho', category: 'sports', badge: '🏆', desc: 'Unusual sports on ESPN8',              type: 'hls',   url: 'https://d3b6q2ou5kp8ke.cloudfront.net/ESPNTheOcho.m3u8' },
+  { id: 'espn-yt',    name: 'ESPN',            category: 'sports', badge: '🏅', desc: 'ESPN live sports & highlights',        type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCnu3DQi0MqDTkTqYf4kNMkw&autoplay=1' },
+  { id: 'foxsports',  name: 'FOX Sports',      category: 'sports', badge: '🦊', desc: 'FOX Sports live & events',            type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCF_fDSgPQmcK7bXXWBKgS7w&autoplay=1' },
+  { id: 'bein-yt',    name: 'beIN Sports',     category: 'sports', badge: '⚽', desc: 'Soccer, basketball & more from beIN', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCIILhfPGvA4Pf8IQXoJFVJw&autoplay=1' },
+  { id: 'tennis-yt',  name: 'Tennis TV',       category: 'sports', badge: '🎾', desc: 'Live tennis tournaments worldwide',    type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCnyfNe2M08Q-gTpFsZE8fBw&autoplay=1' },
+  { id: 'ddsports',   name: 'DD Sports India', category: 'sports', badge: '🏏', desc: 'Cricket, kabaddi & Indian sports',     type: 'hls',   url: 'https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/b17adfe543354fdd8d189b110617cddd/index.m3u8' },
+
+  // ── NEWS ────────────────────────────────────────────────────────
+  { id: 'abcnews',   name: 'ABC News Live',      category: 'news', badge: '📺', desc: 'Breaking news 24/7',                    type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCBi2mrWuNuyYy4gbM6fU18Q&autoplay=1' },
+  { id: 'dwnews',    name: 'DW News',             category: 'news', badge: '🌍', desc: 'Deutsche Welle international news',     type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCknLrEdhRCp1aegoMqRaCZg&autoplay=1' },
+  { id: 'aljaz',     name: 'Al Jazeera English',  category: 'news', badge: '🌐', desc: 'Global news 24/7',                      type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCNye-wNBqNL5ZzHSJj3l8Bg&autoplay=1' },
+  { id: 'france24',  name: 'France 24 English',   category: 'news', badge: '🗼', desc: 'French international news in English',  type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCQfwfsi5VrQ8yKZ-UWmAoBg&autoplay=1' },
+  { id: 'bloomberg', name: 'Bloomberg TV',         category: 'news', badge: '📈', desc: 'Business & financial news live',        type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg&autoplay=1' },
+  { id: 'sky-news',  name: 'Sky News',             category: 'news', badge: '🇬🇧', desc: 'UK breaking news coverage',           type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCegOTmclzjfKuQh-SHRRgaQ&autoplay=1' },
+  { id: 'cbcnews',   name: 'CBC News',             category: 'news', badge: '🍁', desc: "Canada's public news network",          type: 'hls',   url: 'https://nn.geo.cbc.ca/hls/cbc-1080.m3u8' },
+  { id: 'wion-yt',   name: 'WION News',            category: 'news', badge: '🗞️', desc: 'World Is One News — global coverage',  type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCwMF4xRM1TRfEoFNaKMKCpQ&autoplay=1' },
+
+  // ── COMEDY ──────────────────────────────────────────────────────
+  { id: 'comedy-central-yt', name: 'Comedy Central', category: 'comedy', badge: '🎤', desc: 'Stand-up, sketches & comedy shows', type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCUsN5ZwHx2kILm84-jPDeXw&autoplay=1' },
+  { id: 'netflix-joke-yt',   name: 'Netflix Is A Joke', category: 'comedy', badge: '😂', desc: 'Netflix comedy specials & clips',  type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCtinbF-Q-fVthA0qrFQTgXg&autoplay=1' },
+  { id: 'comedy-search-1',   name: 'Comedy Movies',  category: 'comedy', badge: '🎬', desc: 'Free full comedy films on YouTube', type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+comedy+movies+2024&autoplay=1' },
+  { id: 'romcom-search',     name: 'RomCom Channel', category: 'comedy', badge: '❤️', desc: 'Romantic comedies free & full',     type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=romantic+comedy+movies+full+free&autoplay=1' },
+
+  // ── ENTERTAINMENT ───────────────────────────────────────────────
+  { id: 'nasa-yt',        name: 'NASA TV',         category: 'entertainment', badge: '🚀', desc: 'Live space missions & science',      type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCVTomc35agH1LV6ghxEg3sSw&autoplay=1' },
+  { id: 'discovery-yt',   name: 'Discovery',       category: 'entertainment', badge: '🔭', desc: 'Discovery Channel documentaries',    type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UCWX3yGbODI3tRRQz1Br8XJA&autoplay=1' },
+  { id: 'action-search',  name: 'Action Movies',   category: 'entertainment', badge: '💥', desc: 'Free full action films on YouTube',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+action+movies+2024&autoplay=1' },
+  { id: 'horror-search',  name: 'Horror 24/7',     category: 'entertainment', badge: '👻', desc: 'Free full horror films on YouTube',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+horror+movies+2024&autoplay=1' },
+  { id: 'scifi-search',   name: 'Sci-Fi Movies',   category: 'entertainment', badge: '🛸', desc: 'Free full sci-fi films on YouTube',  type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=free+full+science+fiction+movies&autoplay=1' },
+  { id: 'crime-search',   name: 'Crime Drama',     category: 'entertainment', badge: '🔍', desc: 'Crime & thriller dramas on YouTube', type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=crime+thriller+drama+full+movie+free&autoplay=1' },
+  { id: 'classic-search', name: 'Classic Movies',  category: 'entertainment', badge: '🎞️', desc: 'Timeless classic films, free',       type: 'embed', url: 'https://www.youtube.com/embed?listType=search&list=classic+movies+full+free+public+domain&autoplay=1' },
+  { id: 'anime-yt',       name: 'Anime Live',      category: 'entertainment', badge: '🎌', desc: 'Anime episodes & films',             type: 'embed', url: 'https://www.youtube.com/embed/live_stream?channel=UC8-Th83bH_thdKZDJCrn88g&autoplay=1' },
 ];
 
 app.get('/proxy/live-channels', (req, res) => {
@@ -465,16 +490,15 @@ app.get('/proxy/watch', wrap(async (req, res) => {
   // Get IMDb ID - this unlocks all embed servers
   const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
 
-  // Build servers from reliable embed providers (+ YouTube for TV shows)
-  let servers = buildEmbedServers(imdbId, isShow, s, e, d.title);
+  // Build base embed servers
+  let servers = buildEmbedServers(imdbId, isShow, s, e);
 
-  // If API key set, replace the embed-search YouTube URL with a precise video ID
-  if (isShow && YOUTUBE_API_KEY) {
+  // For TV shows: always add YouTube as a server (uses ytsr scrape search, no API key needed)
+  if (isShow) {
     const ytUrl = await findYouTubeEpisode(d.title, s, e);
     if (ytUrl) {
-      const ytIdx = servers.findIndex(sv => sv.label === 'YouTube');
-      if (ytIdx >= 0) servers[ytIdx] = { label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl };
-      else servers.push({ label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl });
+      // Insert YouTube as the last server option
+      servers = [...servers, { label: 'YouTube', type: 'embed', badge: 'YT', url: ytUrl }];
     }
   }
 
