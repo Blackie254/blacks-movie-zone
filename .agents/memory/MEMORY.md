@@ -1,0 +1,2 @@
+- [FreeFlixx identity](freeflixx-identity.md) — Keep the pure-black/crimson brand and prefer Keith APIs where their data fits.
+- [Keith live-score reliability](keith-live-scores.md) — Treat the feed’s in-play labels cautiously; verify match date and elapsed time before showing LIVE.

@@ -1,8 +1,8 @@
-/* ===== BlueBlizzard FreeFlix — Advanced SPA ===== */
+/* ===== FreeFlixx T — entertainment and sports hub ===== */
 
 const API = '/proxy';
-const SEO_SITE = 'BlueBlizzard FreeFlix';
-const SEO_DEFAULT_DESC = 'Watch free movies, TV shows, live sports, wrestling, news and comedy channels on BlueBlizzard FreeFlix. No sign-up required. Stream in HD instantly.';
+const SEO_SITE = 'FreeFlixx T';
+const SEO_DEFAULT_DESC = 'Explore movies, series, live TV, football scores, fixtures and sports news on FreeFlixx T.';
 
 // ===== SEO =====
 function updateSEO({ title, description, url, image } = {}) {
@@ -51,6 +51,7 @@ function router() {
   if (page === 'trending') return renderTrending();
   if (page === 'browse') return renderBrowse(0);
   if (page === 'live') return renderLive();
+  if (page === 'sports') return renderSports();
   if (page === 'new') return renderNewArrivals();
   return renderHome();
 }
@@ -423,6 +424,12 @@ async function renderHome() {
   updateSEO({});
   setApp(`<div style="margin-top:0">${heroHtml(6)}</div>
 
+  <a class="sports-spotlight fade-up" href="/sports" onclick="navigate('/sports');return false;">
+    <span class="sports-spotlight-mark">⚽</span>
+    <span class="sports-spotlight-copy"><strong>THE MATCH CENTRE</strong><small>Live scores · Fixtures · Football news</small></span>
+    <span class="sports-spotlight-cta">Explore sports <b>↗</b></span>
+  </a>
+
   <div class="home-genre-bar">
     <div class="home-genre-label">Browse by Genre</div>
     <div class="home-genre-pills" id="homeGenrePills">
@@ -510,7 +517,7 @@ window.loadRankTab = async function(id, btn) {
 
 // ===== TRENDING =====
 async function renderTrending() {
-  updateSEO({ title: 'Trending Now', description: 'Discover what everyone is watching right now. Trending movies and TV shows streaming free on BlueBlizzard FreeFlix.' });
+  updateSEO({ title: 'Trending Now', description: 'Discover popular movies and TV series on FreeFlixx T.' });
   setApp(`
   <div class="page-header fade-up">
     <h1 class="page-title">🔥 Trending Now</h1>
@@ -527,11 +534,175 @@ async function renderTrending() {
     : emptyHtml('🔥', 'Nothing trending right now', 'Check back soon');
 }
 
+// ===== SPORTS HUB =====
+function sportsNairobiDate(offsetDays = 0) {
+  const date = new Date(Date.now() + offsetDays * 86400000);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function sportsStatus(match) {
+  const status = String(match?.R?.st || match?.status || '').trim().toUpperCase();
+  if (match?.dt && match.dt < sportsNairobiDate() && /^(1T|2T|1H|2H|HT|ET|LIVE|PEN)/.test(status)) return 'FT';
+  return status;
+}
+
+function sportsIsLive(match) {
+  const minute = Number(match?.cm);
+  return (!match?.dt || match.dt === sportsNairobiDate()) &&
+    (!minute || minute <= 130) &&
+    /^(1T|2T|1H|2H|HT|ET|LIVE|PEN)/.test(sportsStatus(match));
+}
+
+function sportsMatchCard(match) {
+  const status = sportsStatus(match) || 'FT';
+  const live = sportsIsLive(match);
+  const home = match.p1 || match.homeTeam || 'Home';
+  const away = match.p2 || match.awayTeam || 'Away';
+  const homeScore = match.R?.r1 ?? match.homeScore ?? '–';
+  const awayScore = match.R?.r2 ?? match.awayScore ?? '–';
+  const clock = sportsIsLive(match) && match.cm ? `${match.cm}′` : status;
+  return `<article class="sports-score-card">
+    <div class="sports-card-top"><span class="sports-league-tag">FOOTBALL</span><span class="sports-state${live ? ' is-live' : ''}">${live ? '<i></i> LIVE' : esc(status)}</span></div>
+    <div class="sports-score-row"><span class="sports-team">${esc(home)}</span><strong>${esc(String(homeScore))}<em>:</em>${esc(String(awayScore))}</strong><span class="sports-team">${esc(away)}</span></div>
+    <div class="sports-card-bottom"><span>${esc(match.dt || 'Match centre')}</span><span>${esc(clock)}</span></div>
+  </article>`;
+}
+
+function sportsFixtureCard(match, competition) {
+  let kickoff = match.date || '';
+  if (kickoff) {
+    const date = new Date(kickoff);
+    if (!Number.isNaN(date.getTime())) kickoff = date.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+  return `<article class="sports-fixture-card">
+    <div class="sports-fixture-meta"><span>${esc(competition)}</span><span>${esc(kickoff || `Matchweek ${match.matchday || ''}`)}</span></div>
+    <div class="sports-fixture-teams"><span>${esc(match.homeTeam || 'Home')}</span><b>VS</b><span>${esc(match.awayTeam || 'Away')}</span></div>
+  </article>`;
+}
+
+async function renderSports() {
+  updateSEO({ title: 'Sports Match Centre', description: 'Follow live football scores, upcoming fixtures, Premier League standings and football news.' });
+  setApp(`<div class="sports-page">
+    <section class="sports-hero">
+      <div class="sports-hero-glow"></div>
+      <div class="sports-hero-copy">
+        <div class="sports-eyebrow"><span class="sports-live-indicator"></span> THE SPORTS DESK</div>
+        <h1>Every match.<br><span>One place.</span></h1>
+        <p>Live football scores, upcoming fixtures, league tables and the stories around the game.</p>
+        <div class="sports-hero-actions">
+          <a class="sports-primary-btn" href="#sports-live">View live scores <span>↓</span></a>
+          <a class="sports-secondary-btn" href="/live" onclick="navigate('/live');return false;">Browse live channels <span>↗</span></a>
+        </div>
+      </div>
+      <div class="sports-ball-art" aria-hidden="true">
+        <svg viewBox="0 0 240 240" role="presentation">
+          <defs><radialGradient id="ballShade" cx="36%" cy="28%"><stop offset="0" stop-color="#f7f4f0"/><stop offset=".7" stop-color="#b7b2ae"/><stop offset="1" stop-color="#555"/></radialGradient></defs>
+          <circle cx="120" cy="120" r="107" fill="url(#ballShade)" stroke="#aaa" stroke-width="3"/>
+          <g fill="#161616" stroke="#252525" stroke-width="3" stroke-linejoin="round">
+            <polygon points="120,76 145,94 136,124 104,124 95,94"/>
+            <polygon points="120,16 145,22 157,48 138,68 111,61 99,37"/>
+            <polygon points="220,88 209,116 182,124 164,101 175,73 201,68"/>
+            <polygon points="188,207 159,220 138,203 146,175 176,166 195,185"/>
+            <polygon points="48,205 27,184 34,154 62,145 83,166 76,195"/>
+            <polygon points="18,82 30,53 59,46 77,69 68,98 40,108"/>
+          </g>
+        </svg>
+      </div>
+      <div class="sports-hero-foot"><span>FOOTBALL · LIVE DATA</span><span>UPDATED FROM KEITH APIS</span></div>
+    </section>
+
+    <section class="sports-section" id="sports-live">
+      <div class="sports-section-head"><div><span class="sports-kicker">RIGHT NOW</span><h2>Live &amp; recent scores</h2></div><button class="sports-refresh" onclick="refreshSports()">↻ <span>Refresh</span></button></div>
+      <div class="sports-score-grid" id="sportsScores"><div class="sports-loading">Loading match scores…</div></div>
+    </section>
+
+    <section class="sports-section">
+      <div class="sports-section-head"><div><span class="sports-kicker">UP NEXT</span><h2>Fixture list</h2></div></div>
+      <div class="sports-filter-row" id="sportsFilters">
+        <button class="sports-filter active" onclick="setSportsCompetition('all',this)">All fixtures</button>
+        <button class="sports-filter" onclick="setSportsCompetition('epl',this)">Premier League</button>
+        <button class="sports-filter" onclick="setSportsCompetition('ucl',this)">Champions League</button>
+      </div>
+      <div class="sports-fixture-grid" id="sportsFixtures"><div class="sports-loading">Loading fixtures…</div></div>
+      <p class="sports-note">Fixture times are shown in your device’s local timezone. For live video coverage, check the official broadcaster in your region.</p>
+    </section>
+
+    <section class="sports-lower-grid">
+      <div class="sports-panel">
+        <div class="sports-section-head"><div><span class="sports-kicker">THE TABLE</span><h2>Premier League</h2></div><a href="https://www.premierleague.com/" target="_blank" rel="noopener noreferrer" class="sports-external-link">Official site ↗</a></div>
+        <div class="sports-table-wrap" id="sportsTable"><div class="sports-loading">Loading standings…</div></div>
+      </div>
+      <div class="sports-panel">
+        <div class="sports-section-head"><div><span class="sports-kicker">AROUND THE GAME</span><h2>Football headlines</h2></div></div>
+        <div class="sports-news-list" id="sportsNews"><div class="sports-loading">Loading headlines…</div></div>
+      </div>
+    </section>
+    <div class="sports-official-callout"><span>Watch responsibly.</span> FreeFlixx T links you to official league information. Video rights and broadcasters vary by location. <a href="https://www.uefa.com/uefachampionsleague/" target="_blank" rel="noopener noreferrer">UEFA official site ↗</a></div>
+  </div>${renderFooter()}`);
+
+  const [live, epl, ucl, table, news] = await Promise.all([
+    api('sports/live'), api('sports/epl'), api('sports/ucl'), api('sports/table'), api('sports/news'),
+  ]);
+  if (location.pathname !== '/sports') return;
+
+  const today = sportsNairobiDate();
+  const yesterday = sportsNairobiDate(-1);
+  const games = Object.values(live?.result?.games || {}).filter(match => {
+    const rawStatus = String(match?.R?.st || match?.status || '').trim().toUpperCase();
+    const completed = ['FT', 'AET', 'PEN'].includes(rawStatus);
+    const liveNow = match.dt === today && sportsIsLive(match);
+    return match.dt >= yesterday && match.dt <= today && (completed || liveNow);
+  });
+  const sortedGames = games.sort((a, b) =>
+    Number(sportsIsLive(b)) - Number(sportsIsLive(a)) ||
+    String(b.dt || '').localeCompare(String(a.dt || '')) ||
+    String(b.tm || '').localeCompare(String(a.tm || '')));
+  fill('sportsScores', sortedGames.length
+    ? sortedGames.slice(0, 8).map(sportsMatchCard).join('')
+    : emptyHtml('⚽', 'No live scores available', live?.error || 'Check back when fixtures are underway.'));
+
+  const fixtureData = {
+    epl: (epl?.result?.upcomingMatches || []).map(match => ({ match, competition: epl?.result?.competition || 'Premier League' })),
+    ucl: (ucl?.result?.upcomingMatches || []).map(match => ({ match, competition: ucl?.result?.competition || 'Champions League' })),
+  };
+  const allFixtures = [...fixtureData.epl, ...fixtureData.ucl];
+  window.setSportsCompetition = (filter, button) => {
+    document.querySelectorAll('#sportsFilters .sports-filter').forEach(item => item.classList.remove('active'));
+    button?.classList.add('active');
+    const list = filter === 'all' ? allFixtures : fixtureData[filter] || [];
+    fill('sportsFixtures', list.length
+      ? list.slice(0, 12).map(({ match, competition }) => sportsFixtureCard(match, competition)).join('')
+      : emptyHtml('🗓️', 'No fixtures available', 'The fixture feed may be temporarily unavailable.'));
+  };
+  window.setSportsCompetition('all', document.querySelector('#sportsFilters .sports-filter'));
+
+  const standings = table?.result?.standings || [];
+  fill('sportsTable', standings.length ? `<table class="sports-standings">
+    <thead><tr><th>#</th><th>Club</th><th>P</th><th>GD</th><th>Pts</th></tr></thead>
+    <tbody>${standings.slice(0, 10).map(team => `<tr><td>${esc(String(team.position ?? ''))}</td><td>${esc(team.team || '')}</td><td>${esc(String(team.played ?? ''))}</td><td>${Number(team.goalDifference) > 0 ? '+' : ''}${esc(String(team.goalDifference ?? 0))}</td><td class="sports-points">${esc(String(team.points ?? ''))}</td></tr>`).join('')}</tbody>
+  </table>` : emptyHtml('🏆', 'Standings unavailable', table?.error || 'Please try again later.'));
+
+  const headlines = news?.result?.data?.items || [];
+  fill('sportsNews', headlines.length ? headlines.slice(0, 5).map(item => `<article class="sports-news-item">
+    ${item.cover?.url ? `<img src="${esc(item.cover.url)}" alt="" loading="lazy" />` : '<div class="sports-news-placeholder">⚽</div>'}
+    <div><span>FOOTBALL NEWS</span><h3>${esc(item.title || 'Football update')}</h3><p>${esc(item.summary || '')}</p></div>
+  </article>`).join('') : emptyHtml('📰', 'Headlines unavailable', news?.error || 'Please try again later.'));
+}
+
+window.refreshSports = function() {
+  ['live', 'epl', 'ucl', 'table', 'news'].forEach(feed => apiCache.delete(`${API}/sports/${feed}`));
+  renderSports();
+};
+
 // ===== SHOWS =====
 let showPage = 1;
 async function renderShows() {
   showPage = 1;
-  updateSEO({ title: 'TV Shows', description: 'Stream thousands of free TV shows and series on BlueBlizzard FreeFlix. Watch drama, comedy, action and more in HD.' });
+  updateSEO({ title: 'TV Shows', description: 'Discover TV shows and series by genre on FreeFlixx T.' });
   setApp(`
   <div class="page-header fade-up">
     <h1 class="page-title">📺 TV Shows</h1>
@@ -594,7 +765,7 @@ let bp = 1, btype = 0, bgenre = '', bcountry = '';
 async function renderBrowse(defaultType) {
   btype = defaultType; bp = 1; bgenre = ''; bcountry = '';
   const titleText = defaultType === 1 ? 'Movies' : 'Browse All';
-  updateSEO({ title: titleText, description: `Browse all free ${defaultType === 1 ? 'movies' : 'movies and TV shows'} on BlueBlizzard FreeFlix.` });
+  updateSEO({ title: titleText, description: `Browse movies and TV shows on FreeFlixx T.` });
 
   setApp(`
   <div class="page-header fade-up">
@@ -680,7 +851,7 @@ async function fetchBrowse(reset) {
 
 // ===== NEW ARRIVALS =====
 async function renderNewArrivals() {
-  updateSEO({ title: 'New Arrivals', description: 'The latest movies and TV shows added to BlueBlizzard FreeFlix. Watch new releases free in HD.' });
+  updateSEO({ title: 'New Arrivals', description: 'Discover recently added movies and shows on FreeFlixx T.' });
   setApp(`
   <div class="page-header fade-up">
     <h1 class="page-title">🆕 New Arrivals</h1>
@@ -701,7 +872,7 @@ async function renderNewArrivals() {
 
 // ===== LIVE TV =====
 async function renderLive() {
-  updateSEO({ title: 'Live TV', description: 'Watch live TV channels free — sports, news, wrestling, comedy and entertainment on BlueBlizzard FreeFlix.' });
+  updateSEO({ title: 'Live TV', description: 'Explore live news, entertainment and sports channels on FreeFlixx T.' });
   setApp(`
   <div class="section" style="padding-top:0">
     <div class="live-hero">
@@ -728,12 +899,12 @@ async function renderLive() {
 
   const cats = [...new Set(channels.map(c => c.category))];
   const catLabels = { wrestling:'🤼 Wrestling', sports:'⚽ Sports', news:'📺 News', comedy:'😂 Comedy', entertainment:'🎬 Entertainment' };
-  let activeCat = cats[0];
+  let activeCat = cats.includes('sports') ? 'sports' : cats[0];
 
   const tabsEl = document.getElementById('liveTabs');
   if (tabsEl) {
-    tabsEl.innerHTML = cats.map((c, i) =>
-      `<button class="live-tab${i===0?' active':''}" onclick="setLiveTab('${c}',this)">${catLabels[c]||c}</button>`).join('');
+    tabsEl.innerHTML = cats.map(c =>
+      `<button class="live-tab${c===activeCat?' active':''}" onclick="setLiveTab('${c}',this)">${catLabels[c]||c}</button>`).join('');
   }
 
   const catColors = {
@@ -825,7 +996,7 @@ window.playLiveChannel = function(url, name, category) {
 let sq = '', sp = 1, stype = '';
 async function renderSearch(q) {
   sq = q; sp = 1; stype = '';
-  updateSEO({ title: q ? `Search: ${q}` : 'Search', description: `Search results for "${q}" on BlueBlizzard FreeFlix.` });
+  updateSEO({ title: q ? `Search: ${q}` : 'Search', description: `Search results for "${q}" on FreeFlixx T.` });
   setApp(`
   <div class="page-header fade-up">
     <h1 class="page-title">🔍 ${q ? `Results for "${esc(q)}"` : 'Search'}</h1>
@@ -926,7 +1097,7 @@ async function renderDetail(id) {
   const yearStr = d.releaseDate ? d.releaseDate.slice(0, 4) : '';
   const seoDesc = d.description
     ? d.description.slice(0, 140)
-    : `Watch ${d.title}${yearStr ? ' (' + yearStr + ')' : ''} free online on BlueBlizzard FreeFlix.`;
+    : `Explore ${d.title}${yearStr ? ' (' + yearStr + ')' : ''} on FreeFlixx T.`;
   updateSEO({ title: `Watch ${d.title}${yearStr ? ' (' + yearStr + ')' : ''}`, description: seoDesc, image: d.cover?.url || undefined });
 
   const isShow = d.subjectType === 2;
@@ -1382,7 +1553,7 @@ async function renderStaff(staffId) {
   ]);
   const d = detail?.data;
   if (!d) { setApp(emptyHtml('⚠️', 'Could not load actor', '', true)); return; }
-  updateSEO({ title: d.name, description: `See all movies and TV shows starring ${d.name} on BlueBlizzard FreeFlix.`, image: d.avatar?.url });
+  updateSEO({ title: d.name, description: `See movies and TV shows featuring ${d.name} on FreeFlixx T.`, image: d.avatar?.url });
   const avatar = d.avatar?.url || '';
   const worksItems = works?.data?.subjectList || [];
   setApp(`
@@ -1424,8 +1595,8 @@ function renderFooter() {
         <svg viewBox="0 0 24 24" fill="white" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
       </div>
       <div>
-        <div style="font-size:14px;font-weight:700">Blue<span style="color:var(--primary-light)">Blizzard</span></div>
-        <div style="font-size:10px;color:var(--text3);font-weight:600;letter-spacing:1.5px;text-transform:uppercase">FreeFlix</div>
+        <div style="font-size:14px;font-weight:700">FreeFlixx<span style="color:var(--primary-light)"> T</span></div>
+        <div style="font-size:10px;color:var(--text3);font-weight:600;letter-spacing:1.5px;text-transform:uppercase">STREAM UNIVERSE</div>
       </div>
     </div>
     <div class="footer-links">
@@ -1433,6 +1604,7 @@ function renderFooter() {
       <a class="footer-link" href="/movies" onclick="navigate('/movies');return false;">Movies</a>
       <a class="footer-link" href="/shows" onclick="navigate('/shows');return false;">TV Shows</a>
       <a class="footer-link" href="/live" onclick="navigate('/live');return false;">Live TV</a>
+      <a class="footer-link" href="/sports" onclick="navigate('/sports');return false;">Sports</a>
       <a class="footer-link" href="/trending" onclick="navigate('/trending');return false;">Trending</a>
     </div>
     <div class="footer-contact">
@@ -1445,7 +1617,7 @@ function renderFooter() {
         Email Us
       </a>
     </div>
-    <div class="footer-copy">© ${new Date().getFullYear()} BlueBlizzard FreeFlix · For educational use only</div>
+    <div class="footer-copy">© ${new Date().getFullYear()} FreeFlixx T · Sports data by Keith APIs</div>
   </footer>`;
 }
 

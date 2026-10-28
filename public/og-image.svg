@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#080c14"/>
-      <stop offset="100%" style="stop-color:#0f1a2e"/>
+      <stop offset="0%" style="stop-color:#050505"/>
+      <stop offset="100%" style="stop-color:#160507"/>
     </linearGradient>
     <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#38bdf8"/>
-      <stop offset="100%" style="stop-color:#818cf8"/>
+      <stop offset="0%" style="stop-color:#ff3340"/>
+      <stop offset="100%" style="stop-color:#a80712"/>
     </linearGradient>
     <filter id="glow">
       <feGaussianBlur stdDeviation="8" result="blur"/>
@@ -18,35 +18,36 @@
   <rect width="1200" height="630" fill="url(#bg)"/>
 
   <!-- Decorative circles -->
-  <circle cx="980" cy="120" r="200" fill="#38bdf8" opacity="0.04"/>
-  <circle cx="220" cy="500" r="160" fill="#818cf8" opacity="0.05"/>
+  <circle cx="980" cy="120" r="200" fill="#e50914" opacity="0.09"/>
+  <circle cx="220" cy="500" r="160" fill="#e50914" opacity="0.06"/>
 
-  <!-- Snowflake icon -->
-  <text x="100" y="310" font-family="Arial, sans-serif" font-size="120" fill="url(#accent)" filter="url(#glow)" opacity="0.9">❄</text>
+  <!-- Play mark -->
+  <rect x="98" y="195" width="112" height="112" rx="28" fill="url(#accent)" filter="url(#glow)"/>
+  <path d="M143 222v58l45-29z" fill="#fff"/>
 
   <!-- Brand name -->
-  <text x="260" y="268" font-family="Arial Black, sans-serif" font-size="80" font-weight="900" fill="#f0f6ff">Blue</text>
-  <text x="455" y="268" font-family="Arial Black, sans-serif" font-size="80" font-weight="900" fill="url(#accent)">Blizzard</text>
+  <text x="260" y="268" font-family="Arial Black, sans-serif" font-size="80" font-weight="900" fill="#f7f7f8">FreeFlixx</text>
+  <text x="727" y="268" font-family="Arial Black, sans-serif" font-size="80" font-weight="900" fill="url(#accent)">T</text>
 
   <!-- Sub title -->
-  <text x="262" y="320" font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#64748b" letter-spacing="8">F R E E F L I X</text>
+  <text x="263" y="320" font-family="Arial, sans-serif" font-size="27" font-weight="700" fill="#8e8e93" letter-spacing="7">STREAM UNIVERSE</text>
 
   <!-- Divider -->
   <rect x="100" y="355" width="1000" height="2" fill="url(#accent)" opacity="0.3"/>
 
   <!-- Tagline -->
-  <text x="100" y="420" font-family="Arial, sans-serif" font-size="34" fill="#94a3b8">Free Movies · TV Shows · Live Sports · Comedy · News</text>
+  <text x="100" y="420" font-family="Arial, sans-serif" font-size="34" fill="#c4c4c8">Movies · Series · Live TV · Football</text>
 
   <!-- Pills -->
-  <rect x="100" y="455" width="180" height="46" rx="23" fill="#38bdf8" opacity="0.15"/>
-  <text x="190" y="484" font-family="Arial, sans-serif" font-size="22" fill="#38bdf8" text-anchor="middle">HD Streaming</text>
+  <rect x="100" y="455" width="180" height="46" rx="23" fill="#e50914" opacity="0.18"/>
+  <text x="190" y="484" font-family="Arial, sans-serif" font-size="22" fill="#ff6871" text-anchor="middle">Football Scores</text>
 
-  <rect x="298" y="455" width="180" height="46" rx="23" fill="#818cf8" opacity="0.15"/>
-  <text x="388" y="484" font-family="Arial, sans-serif" font-size="22" fill="#818cf8" text-anchor="middle">No Sign-Up</text>
+  <rect x="298" y="455" width="180" height="46" rx="23" fill="#fff" opacity="0.07"/>
+  <text x="388" y="484" font-family="Arial, sans-serif" font-size="22" fill="#d5d5d8" text-anchor="middle">Live Fixtures</text>
 
-  <rect x="496" y="455" width="160" height="46" rx="23" fill="#34d399" opacity="0.15"/>
-  <text x="576" y="484" font-family="Arial, sans-serif" font-size="22" fill="#34d399" text-anchor="middle">100% Free</text>
+  <rect x="496" y="455" width="160" height="46" rx="23" fill="#fff" opacity="0.07"/>
+  <text x="576" y="484" font-family="Arial, sans-serif" font-size="22" fill="#d5d5d8" text-anchor="middle">Series &amp; TV</text>
 
   <!-- URL -->
-  <text x="100" y="580" font-family="Arial, sans-serif" font-size="24" fill="#475569">blueblizzard.replit.app</text>
+  <text x="100" y="580" font-family="Arial, sans-serif" font-size="24" fill="#77777e">FREEFLIXX T · ENTERTAINMENT &amp; SPORTS</text>
 </svg>

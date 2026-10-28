@@ -4,6 +4,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const API_BASE = 'https://movieapi.xcasper.space/api';
+const SPORTS_API_BASE = 'https://apis.keithsite.lol';
 const ALLOWED_CDN = ['macdn.aoneroom.com', 'pbcdnw.aoneroom.com', 'cdn.aoneroom.com'];
 
 const BROWSER_HEADERS = {
@@ -17,6 +18,8 @@ const BROWSER_HEADERS = {
 // ===== IN-MEMORY CACHE =====
 const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
+const sportsCache = new Map();
+const SPORTS_CACHE_TTL = 45 * 1000;
 
 function getCached(key) {
   const entry = cache.get(key);
@@ -59,7 +62,7 @@ app.get('/robots.txt', (req, res) => {
 
 app.get('/sitemap.xml', (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;
-  const pages = ['/', '/movies', '/shows', '/trending', '/browse', '/live', '/new'];
+  const pages = ['/', '/movies', '/shows', '/trending', '/browse', '/sports', '/live', '/new'];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${pages.map(p => `  <url><loc>${base}${p}</loc><changefreq>daily</changefreq><priority>${p === '/' ? '1.0' : '0.8'}</priority></url>`).join('\n')}
@@ -135,6 +138,41 @@ app.get('/proxy/hot', wrap(async (req, res) => {
 
 app.get('/proxy/live', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/live`));
+}));
+
+// ===== SPORTS DATA (fixed upstream paths; never accepts a caller-supplied URL) =====
+const SPORTS_FEEDS = {
+  live: '/livescore',
+  epl: '/epl/upcomingmatches',
+  ucl: '/ucl/upcomingmatches',
+  table: '/epl/standings',
+  news: '/football/news',
+};
+
+app.get('/proxy/sports/:feed', wrap(async (req, res) => {
+  const endpoint = SPORTS_FEEDS[req.params.feed];
+  if (!endpoint) return res.status(404).json({ status: false, error: 'Unknown sports feed' });
+
+  const cacheKey = req.params.feed;
+  const cached = sportsCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < SPORTS_CACHE_TTL) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const upstream = await fetch(`${SPORTS_API_BASE}${endpoint}`, {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'FreeFlixx/1.0' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!upstream.ok) {
+      return res.status(502).json({ status: false, error: `Sports feed returned HTTP ${upstream.status}` });
+    }
+    const data = await upstream.json();
+    if (data?.status) sportsCache.set(cacheKey, { data, ts: Date.now() });
+    res.json(data);
+  } catch {
+    res.status(502).json({ status: false, error: 'Sports data is temporarily unavailable' });
+  }
 }));
 
 // ===== STAFF / ACTOR ENDPOINTS =====
@@ -489,5 +527,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`BlueBlizzard FreeFlix running on http://0.0.0.0:${PORT}`);
+  console.log(`FreeFlixx T running on http://0.0.0.0:${PORT}`);
 });
