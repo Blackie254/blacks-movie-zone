@@ -5,7 +5,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const API_BASE = 'https://movieapi.xcasper.space/api';
 const SPORTS_API_BASE = 'https://apis.keithsite.lol';
-const ALLOWED_CDN = ['macdn.aoneroom.com', 'pbcdnw.aoneroom.com', 'cdn.aoneroom.com'];
 
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -62,7 +61,7 @@ app.get('/robots.txt', (req, res) => {
 
 app.get('/sitemap.xml', (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;
-  const pages = ['/', '/movies', '/shows', '/trending', '/browse', '/sports', '/live', '/new'];
+  const pages = ['/', '/movies', '/series', '/trending', '/browse', '/sports', '/live', '/new'];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${pages.map(p => `  <url><loc>${base}${p}</loc><changefreq>daily</changefreq><priority>${p === '/' ? '1.0' : '0.8'}</priority></url>`).join('\n')}
@@ -107,16 +106,6 @@ app.get('/proxy/rich-detail', wrap(async (req, res) => {
 app.get('/proxy/play', wrap(async (req, res) => {
   const { subjectId } = req.query;
   res.json(await proxyFetch(`${API_BASE}/play?subjectId=${subjectId}`));
-}));
-
-app.get('/proxy/stream', wrap(async (req, res) => {
-  const { subjectId } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/bff/stream?subjectId=${subjectId}`));
-}));
-
-app.get('/proxy/captions', wrap(async (req, res) => {
-  const { subjectId, streamId } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/captions?subjectId=${subjectId}&streamId=${streamId}`));
 }));
 
 app.get('/proxy/recommend', wrap(async (req, res) => {
@@ -191,136 +180,12 @@ app.get('/proxy/staff/related', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/staff/related?staffId=${staffId}`));
 }));
 
-// ===== SHOWBOX ENDPOINTS =====
-app.get('/proxy/showbox/search', wrap(async (req, res) => {
-  const { keyword, type = 'movie', pagelimit = 5 } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/showbox/search?keyword=${encodeURIComponent(keyword)}&type=${type}&pagelimit=${pagelimit}`));
-}));
+// Title catalog, series details, and episode metadata are provided by the catalog API.
+// Playback sources are deliberately not resolved or proxied by this server.
 
-app.get('/proxy/showbox/movie', wrap(async (req, res) => {
-  const { id } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/showbox/movie?id=${id}`));
-}));
-
-app.get('/proxy/showbox/tv', wrap(async (req, res) => {
-  const { id } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/showbox/tv?id=${id}`));
-}));
-
-// ===== NEWTOXIC ENDPOINTS =====
-app.get('/proxy/newtoxic/search', wrap(async (req, res) => {
-  const { keyword } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/newtoxic/search?keyword=${encodeURIComponent(keyword)}`));
-}));
-
-app.get('/proxy/newtoxic/latest', wrap(async (req, res) => {
-  const { page = 1 } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/newtoxic/latest?page=${page}`));
-}));
-
-app.get('/proxy/newtoxic/featured', wrap(async (req, res) => {
-  res.json(await proxyFetch(`${API_BASE}/newtoxic/featured`));
-}));
-
-app.get('/proxy/newtoxic/detail', wrap(async (req, res) => {
-  const { path: p } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/newtoxic/detail?path=${encodeURIComponent(p)}`));
-}));
-
-app.get('/proxy/newtoxic/files', wrap(async (req, res) => {
-  const { path: p } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/newtoxic/files?path=${encodeURIComponent(p)}`));
-}));
-
-app.get('/proxy/newtoxic/resolve', wrap(async (req, res) => {
-  const { fid } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/newtoxic/resolve?fid=${fid}`));
-}));
-
-// ===== IMDb ID lookup (fast) =====
-function cleanTitleForImdb(title) {
-  // Strip everything after | · — to get the primary title only
-  return (title || '').split(/[|·—]/)[0].trim();
-}
-
-async function getImdbId(title, releaseDate, isShow) {
-  try {
-    const rawTitle = (title || '').trim();
-    if (!rawTitle) return null;
-    const cleanTitle = cleanTitleForImdb(rawTitle);
-    const year = releaseDate ? parseInt(releaseDate.split('-')[0]) : null;
-    const cacheKey = `imdb:${cleanTitle.toLowerCase()}:${year}`;
-    const cached = getCached(cacheKey);
-    if (cached) return cached;
-
-    // Try clean title first, then raw title as fallback
-    for (const query of [cleanTitle, rawTitle]) {
-      if (!query) continue;
-      const firstChar = query[0].toLowerCase();
-      const url = `https://v2.sg.media-imdb.com/suggestion/${firstChar}/${encodeURIComponent(query)}.json`;
-      try {
-        const res = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' },
-          signal: AbortSignal.timeout(5000),
-        });
-        const data = await res.json();
-        const results = data.d || [];
-        if (!results.length) continue;
-        const tvTypes = ['tvSeries', 'tvMiniSeries', 'tvShort', 'tvMovie'];
-        const ql = query.toLowerCase();
-
-        let match = results.find(r =>
-          r.l?.toLowerCase() === ql &&
-          (!year || r.y === year) &&
-          (isShow ? tvTypes.includes(r.qid) : r.qid === 'movie')
-        );
-        if (!match && year) match = results.find(r => r.l?.toLowerCase() === ql && r.y === year);
-        if (!match) match = results.find(r => r.l?.toLowerCase() === ql);
-        if (!match && year) match = results.find(r => Math.abs((r.y || 0) - year) <= 1);
-        if (!match) match = results[0];
-
-        const id = match?.id || null;
-        if (id) { setCache(cacheKey, id); return id; }
-      } catch (_) {}
-    }
-    setCache(cacheKey, null);
-    return null;
-  } catch (_) {
-    return null;
-  }
-}
-
-// ===== BUILD EMBED SERVERS =====
-function buildEmbedServers(imdbId, isShow, s, e) {
-  if (!imdbId) return [];
-
-  if (isShow) {
-    return [
-      { label: 'Blizzflix 1',  type: 'embed', badge: 'HD',  url: `https://vidsrc.to/embed/tv/${imdbId}/${s}/${e}` },
-      { label: 'Blizzflix 2',  type: 'embed', badge: 'HD',  url: `https://player.videasy.net/tv/${imdbId}/${s}/${e}` },
-      { label: 'Blizzflix 3',  type: 'embed', badge: '4K',  url: `https://embed.su/embed/tv/${imdbId}/${s}/${e}` },
-      { label: 'Blizzflix 4',  type: 'embed', badge: 'HD',  url: `https://vidsrc.net/embed/tv?imdb=${imdbId}&season=${s}&episode=${e}` },
-      { label: 'Blizzflix 5',  type: 'embed', badge: 'HD',  url: `https://autoembed.co/tv/imdb/${imdbId}-${s}-${e}` },
-      { label: 'Blizzflix 6',  type: 'embed', badge: 'HD',  url: `https://multiembed.mov/?video_id=${imdbId}&imdb=1&s=${s}&e=${e}` },
-      { label: 'Blizzflix 7',  type: 'embed', badge: 'HD',  url: `https://player.smashy.stream/tv/${imdbId}?s=${s}&e=${e}` },
-      { label: 'Blizzflix 8',  type: 'embed', badge: 'HD',  url: `https://www.2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` },
-      { label: 'Blizzflix 9',  type: 'embed', badge: 'HD',  url: `https://moviesapi.club/tv/${imdbId}-${s}-${e}` },
-      { label: 'Blizzflix 10', type: 'embed', badge: 'HD',  url: `https://vidsrc.pro/embed/tv/${imdbId}/${s}/${e}` },
-    ];
-  } else {
-    return [
-      { label: 'Blizzflix 1',  type: 'embed', badge: 'HD',  url: `https://vidsrc.xyz/embed/movie/${imdbId}` },
-      { label: 'Blizzflix 2',  type: 'embed', badge: 'HD',  url: `https://player.videasy.net/movie/${imdbId}` },
-      { label: 'Blizzflix 3',  type: 'embed', badge: '4K',  url: `https://embed.su/embed/movie/${imdbId}` },
-      { label: 'Blizzflix 4',  type: 'embed', badge: 'HD',  url: `https://vidsrc.net/embed/movie?imdb=${imdbId}` },
-      { label: 'Blizzflix 5',  type: 'embed', badge: 'HD',  url: `https://autoembed.co/movie/imdb/${imdbId}` },
-      { label: 'Blizzflix 6',  type: 'embed', badge: 'HD',  url: `https://multiembed.mov/?video_id=${imdbId}&imdb=1` },
-      { label: 'Blizzflix 7',  type: 'embed', badge: 'HD',  url: `https://player.smashy.stream/movie/${imdbId}` },
-      { label: 'Blizzflix 8',  type: 'embed', badge: 'HD',  url: `https://www.2embed.cc/embed/${imdbId}` },
-      { label: 'Blizzflix 9',  type: 'embed', badge: 'HD',  url: `https://moviesapi.club/movie/${imdbId}` },
-      { label: 'Blizzflix 10', type: 'embed', badge: 'HD',  url: `https://vidsrc.pro/embed/movie/${imdbId}` },
-    ];
-  }
+// Legacy playback paths are explicitly retired to avoid accidentally serving scraped streams.
+for (const route of ['/proxy/watch', '/proxy/stream', '/proxy/mb-stream', '/proxy/video']) {
+  app.all(route, (req, res) => res.status(410).json({ success: false, error: 'Third-party stream resolution is not supported. Configure authorized media sources in public/media-sources.js.' }));
 }
 
 // ===== CURATED LIVE CHANNELS =====
@@ -394,132 +259,6 @@ app.get('/proxy/live-stream', wrap(async (req, res) => {
     const { Readable } = require('stream');
     Readable.fromWeb(upstream.body).pipe(res);
   }
-}));
-
-// ===== HLS-AWARE STREAM PROXY =====
-app.get('/proxy/mb-stream', wrap(async (req, res) => {
-  const rawUrl = req.query.url;
-  if (!rawUrl) return res.status(400).send('Missing url');
-  let targetUrl;
-  try { targetUrl = decodeURIComponent(rawUrl); } catch { return res.status(400).send('Invalid url'); }
-
-  const upHeaders = {
-    'User-Agent': BROWSER_HEADERS['User-Agent'],
-    'Referer': 'https://www.showbox.media/',
-    'Origin': 'https://www.showbox.media',
-  };
-  if (req.headers.range) upHeaders['Range'] = req.headers.range;
-
-  const upstream = await fetch(targetUrl, { headers: upHeaders });
-  const ct = upstream.headers.get('content-type') || '';
-
-  res.setHeader('Access-Control-Allow-Origin', '*');
-
-  if (ct.includes('mpegurl') || targetUrl.includes('.m3u8')) {
-    const text = await upstream.text();
-    const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-    const rewritten = text.split('\n').map(line => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) return line;
-      const absUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
-      return `/proxy/mb-stream?url=${encodeURIComponent(absUrl)}`;
-    }).join('\n');
-    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.send(rewritten);
-  } else {
-    res.status(upstream.status);
-    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
-      const v = upstream.headers.get(h); if (v) res.setHeader(h, v);
-    });
-    const { Readable } = require('stream');
-    Readable.fromWeb(upstream.body).pipe(res);
-  }
-}));
-
-// ===== WATCH INFO (fast embed-first approach) =====
-app.get('/proxy/watch', wrap(async (req, res) => {
-  const { subjectId, season = '1', episode = '1' } = req.query;
-  if (!subjectId) return res.json({ success: false, error: 'Missing subjectId' });
-
-  const detail = await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`);
-  const d = detail?.data;
-  if (!d) return res.json({ success: false, error: 'Could not fetch detail' });
-
-  const isShow = d.subjectType === 2;
-  const s = parseInt(season) || 1;
-  const e = parseInt(episode) || 1;
-
-  // Get IMDb ID - this unlocks all embed servers
-  const imdbId = await getImdbId(d.title, d.releaseDate, isShow);
-
-  // Build servers from reliable embed providers
-  const servers = buildEmbedServers(imdbId, isShow, s, e);
-
-  let previewUrl = null;
-  if (d.trailerUrl) {
-    try {
-      const host = new URL(d.trailerUrl).hostname;
-      if (ALLOWED_CDN.includes(host)) {
-        previewUrl = `/proxy/video?url=${encodeURIComponent(d.trailerUrl)}`;
-      }
-    } catch (_) {}
-  }
-
-  const tracks = (d.dubs || []).map(dub => ({
-    subjectId: dub.subjectId,
-    label: dub.lanName,
-    detailPath: dub.detailPath,
-    original: dub.original,
-  }));
-
-  res.json({
-    success: true,
-    title: d.title,
-    imdbId,
-    servers,
-    previewUrl,
-    tracks,
-    isShow,
-    season: s,
-    episode: e,
-    year: d.releaseDate ? d.releaseDate.split('-')[0] : null,
-    rating: d.imdbRatingValue || null,
-    genres: d.genre ? d.genre.split(',').map(g => g.trim()).filter(Boolean) : [],
-    posterUrl: d.cover?.url || null,
-    description: d.description || null,
-    country: d.countryName || null,
-    duration: d.duration || null,
-  });
-}));
-
-// ===== VIDEO PROXY =====
-app.get('/proxy/video', wrap(async (req, res) => {
-  const rawUrl = req.query.url;
-  if (!rawUrl) return res.status(400).send('Missing url');
-
-  let parsed;
-  try { parsed = new URL(decodeURIComponent(rawUrl)); } catch { return res.status(400).send('Invalid url'); }
-
-  if (!ALLOWED_CDN.includes(parsed.hostname)) {
-    return res.status(403).send('Domain not allowed');
-  }
-
-  const fetchHeaders = {
-    'User-Agent': BROWSER_HEADERS['User-Agent'],
-    'Referer': 'https://www.aoneroom.com/',
-    'Origin': 'https://www.aoneroom.com',
-  };
-  if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
-
-  const upstream = await fetch(parsed.href, { headers: fetchHeaders });
-
-  res.status(upstream.status);
-  const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
-  forward.forEach(h => { const v = upstream.headers.get(h); if (v) res.setHeader(h, v); });
-  res.setHeader('Access-Control-Allow-Origin', '*');
-
-  const { Readable } = require('stream');
-  Readable.fromWeb(upstream.body).pipe(res);
 }));
 
 app.get('*', (req, res) => {

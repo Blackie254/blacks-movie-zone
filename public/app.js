@@ -47,7 +47,7 @@ function router() {
   if (page === 'staff' && id) return renderStaff(id);
   if (page === 'search') return renderSearch(new URLSearchParams(location.search).get('q') || '');
   if (page === 'movies') return renderBrowse(1);
-  if (page === 'shows') return renderShows();
+  if (page === 'shows' || page === 'series') return renderShows();
   if (page === 'trending') return renderTrending();
   if (page === 'browse') return renderBrowse(0);
   if (page === 'live') return renderLive();
@@ -65,7 +65,8 @@ window.addEventListener('popstate', router);
 window.navigate = navigate;
 
 function highlightNav() {
-  const page = location.pathname.split('/')[1] || 'home';
+  const rawPage = location.pathname.split('/')[1] || 'home';
+  const page = rawPage === 'shows' ? 'series' : rawPage;
   document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.page === page));
 }
 function clearHeroTimer() { clearInterval(heroTimer); heroTimer = null; }
@@ -178,7 +179,7 @@ function makeCard(item) {
   const genre = (item.genre || '').split(',')[0].trim();
   const poster = item.cover?.url;
   return `
-  <div class="card" onclick="navigate('/detail/${item.subjectId}')" onmouseenter="prefetchStream('${item.subjectId}')">
+  <div class="card" onclick="navigate('/detail/${item.subjectId}')">
     <div class="card-img-wrap">
       ${poster
         ? `<img class="card-poster" src="${poster}" alt="${esc(item.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-poster-placeholder" style="display:none">🎬</div>`
@@ -206,7 +207,7 @@ function makeNtCard(item) {
   const year = item.year || item.releaseYear || '';
   const path = item.path || item.detailPath || item.slug || item.url || '';
   return `
-  <div class="card" onclick="openNtDetail('${esc(path)}','${esc(title)}')">
+  <div class="card" onclick="toast('Catalog entry only — playback requires an authorized source configured by the site owner.')">
     <div class="card-img-wrap">
       ${poster
         ? `<img class="card-poster" src="${poster}" alt="${esc(title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-poster-placeholder" style="display:none">🎬</div>`
@@ -224,66 +225,6 @@ function makeNtCard(item) {
     </div>
   </div>`;
 }
-
-window.openNtDetail = async function(path, title) {
-  if (!path) return;
-  const overlay = document.getElementById('playerOverlay');
-  const header = document.getElementById('playerHeader');
-  const body = document.getElementById('playerBody');
-  const info = document.getElementById('playerInfo');
-  overlay.classList.add('show');
-  header.textContent = title;
-  info.innerHTML = '';
-  body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
-
-  const detail = await api('newtoxic/detail', { path });
-  const d = detail?.data || detail;
-  const files = d?.files || d?.fileList || [];
-  const filesPath = d?.path || d?.filesPath || '';
-
-  let fileList = files;
-  if (!fileList.length && filesPath) {
-    const fr = await api('newtoxic/files', { path: filesPath });
-    fileList = fr?.data?.files || fr?.files || [];
-  }
-
-  if (!fileList.length) {
-    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>No playable files found</h3></div>`;
-    return;
-  }
-
-  const firstFid = fileList[0]?.fid || fileList[0]?.id;
-  if (!firstFid) {
-    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>Cannot resolve stream</h3></div>`;
-    return;
-  }
-
-  const resolved = await api('newtoxic/resolve', { fid: firstFid });
-  const streamUrl = resolved?.data?.url || resolved?.url;
-  if (!streamUrl) {
-    body.innerHTML = `<div class="player-error"><div class="icon">⚠️</div><h3>Stream not available</h3></div>`;
-    return;
-  }
-
-  body.innerHTML = `<video id="videoPlayer" controls autoplay playsinline style="width:100%;max-height:64vh;display:block;background:#000">
-    <source src="${esc(streamUrl)}" type="video/mp4" />
-  </video>`;
-
-  if (fileList.length > 1) {
-    info.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Episodes / Files</div>
-      <div class="player-streams">${fileList.map((f, i) => `<button class="stream-btn${i===0?' active':''}" onclick="loadNtFile('${f.fid||f.id}',this)">${esc(f.title||f.name||'Episode '+(i+1))}</button>`).join('')}</div>`;
-  }
-};
-
-window.loadNtFile = async function(fid, btn) {
-  document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const resolved = await api('newtoxic/resolve', { fid });
-  const url = resolved?.data?.url || resolved?.url;
-  if (!url) { toast('Could not load stream', 'error'); return; }
-  const vid = document.getElementById('videoPlayer');
-  if (vid) { vid.src = url; vid.play(); }
-};
 
 // ===== SKELETON =====
 function skeletonRow(n = 8) {
@@ -371,7 +312,6 @@ function applyHeroSlide(first) {
   el.querySelector('.hero-btn-play').onclick = () => openPlayer(item.subjectId, item.title);
   el.querySelector('.hero-btn-info').onclick = () => navigate(`/detail/${item.subjectId}`);
   el.querySelectorAll('.hero-dot').forEach((d, i) => d.classList.toggle('active', i === heroSlideIndex));
-  prefetchStream(item.subjectId);
 }
 
 function heroHtml(count) {
@@ -441,7 +381,7 @@ async function renderHome() {
   <div class="section"><div class="section-header"><h2 class="section-title">🔥 Trending Now</h2></div>${makeRow('trendRow', skeletonRow())}</div>
   <div class="section"><div class="section-header"><h2 class="section-title">🏆 Top Ranked</h2></div><div class="rank-tabs" id="rankTabs"></div>${makeRow('rankCards', skeletonRow())}</div>
   <div class="section" id="homeMoviesSection"><div class="section-header"><h2 class="section-title" id="homeMoviesTitle">🎬 Popular Movies</h2><a class="section-more" href="/movies" onclick="navigate('/movies');return false;">See All →</a></div>${makeRow('moviesRow', skeletonRow())}</div>
-  <div class="section" id="homeShowsSection"><div class="section-header"><h2 class="section-title" id="homeShowsTitle">📺 Series &amp; Shows</h2><a class="section-more" href="/shows" onclick="navigate('/shows');return false;">See All →</a></div>${makeRow('showsRow', skeletonRow())}</div>
+  <div class="section" id="homeShowsSection"><div class="section-header"><h2 class="section-title" id="homeShowsTitle">📺 Series &amp; Shows</h2><a class="section-more" href="/series" onclick="navigate('/series');return false;">See All →</a></div>${makeRow('showsRow', skeletonRow())}</div>
   <div class="section"><div class="section-header"><h2 class="section-title">🆕 New Arrivals</h2><a class="section-more" href="/new" onclick="navigate('/new');return false;">See All →</a></div>${makeRow('newRow', skeletonRow())}</div>
   ${renderFooter()}`);
 
@@ -702,11 +642,11 @@ window.refreshSports = function() {
 let showPage = 1;
 async function renderShows() {
   showPage = 1;
-  updateSEO({ title: 'TV Shows', description: 'Discover TV shows and series by genre on FreeFlixx T.' });
+  updateSEO({ title: 'Series', description: 'Browse series by genre, explore seasons, and view episode guides.' });
   setApp(`
   <div class="page-header fade-up">
-    <h1 class="page-title">📺 TV Shows</h1>
-    <p class="page-subtitle">Stream series for free — no signup</p>
+    <h1 class="page-title">📺 Series</h1>
+    <p class="page-subtitle">Browse series, seasons, and episode guides</p>
   </div>
   <div class="pill-section">
     <div class="pill-label">Genre</div>
@@ -770,7 +710,7 @@ async function renderBrowse(defaultType) {
   setApp(`
   <div class="page-header fade-up">
     <h1 class="page-title">${defaultType === 1 ? '🎬 Movies' : '🌐 Browse All'}</h1>
-    <p class="page-subtitle">${defaultType === 1 ? 'Stream movies free — no signup' : 'All movies and TV shows in one place'}</p>
+    <p class="page-subtitle">${defaultType === 1 ? 'Browse the movie catalog' : 'All movies and TV shows in one place'}</p>
   </div>
   <div class="pill-section">
     ${defaultType === 0 ? `
@@ -1055,7 +995,6 @@ async function fetchSearch(reset) {
 async function renderDetail(id) {
   _currentShowId = id;
   _currentSeasonNum = 1;
-  prefetchStream(id);
 
   setApp(`
   <div class="watch-page">
@@ -1064,7 +1003,7 @@ async function renderDetail(id) {
         <div class="watch-player-embed" id="watchPlayerEmbed">
           <div class="watch-player-loading">
             <div class="spinner"></div>
-            <p class="watch-loading-text">Loading player…</p>
+            <p class="watch-loading-text">Checking for an authorized media source…</p>
           </div>
         </div>
       </div>
@@ -1137,12 +1076,10 @@ async function renderDetail(id) {
     </div>`;
   }
 
-  // Load player
-  const watchDataPromise = streamCache.get(id);
-  const watchData = await watchDataPromise;
+  // Mount playback only when an explicit, authorized source is configured by the site owner.
   const embed = document.getElementById('watchPlayerEmbed');
   const controls = document.getElementById('watchControls');
-  if (embed && controls) renderWatchPlayer(embed, controls, id, d.title, watchData, isShow, 1, 1);
+  if (embed && controls) renderWatchPlayer(embed, controls, id, d.title, isShow, 1, 1);
 
   const page = document.querySelector('.watch-page');
   if (!page) return;
@@ -1187,153 +1124,67 @@ async function renderDetail(id) {
   page.insertAdjacentHTML('beforeend', renderFooter());
 }
 
-// ===== PLAYER STATE (shared by both modal and detail page players) =====
-const _ps = { servers: [], idx: 0, autoTimer: null, context: 'watch' };
+// ===== AUTHORIZED MEDIA PLAYER =====
 let _currentShowId = null;
 let _currentSeasonNum = 1;
 
-function _clearAutoTimer() { if (_ps.autoTimer) { clearTimeout(_ps.autoTimer); _ps.autoTimer = null; } }
-
-function _advanceServer(delta = 1) {
-  _clearAutoTimer();
-  const newIdx = _ps.idx + delta;
-  if (newIdx < 0 || newIdx >= _ps.servers.length) {
-    toast('No more servers to try', 'error');
-    return;
-  }
-  _ps.idx = newIdx;
-  const srv = _ps.servers[_ps.idx];
-
-  if (_ps.context === 'watch') {
-    const embed = document.getElementById('watchPlayerEmbed');
-    const controls = document.getElementById('watchControls');
-    if (embed) _mountEmbedFrame(embed, srv, true);
-    _updateWatchServerBtns(controls);
-  } else {
-    const body = document.getElementById('playerBody');
-    if (body) _mountModalEmbed(body, srv);
-    _updateModalServerBtns();
-  }
-}
-window.playerNextServer = () => _advanceServer(1);
-window.playerPrevServer = () => _advanceServer(-1);
-window.playerSelectServer = function(idx) {
-  _clearAutoTimer();
-  _ps.idx = idx;
-  const srv = _ps.servers[_ps.idx];
-  if (_ps.context === 'watch') {
-    const embed = document.getElementById('watchPlayerEmbed');
-    const controls = document.getElementById('watchControls');
-    if (embed) _mountEmbedFrame(embed, srv, true);
-    _updateWatchServerBtns(controls);
-  } else {
-    const body = document.getElementById('playerBody');
-    if (body) _mountModalEmbed(body, srv);
-    _updateModalServerBtns();
-  }
-};
-
-function _mountEmbedFrame(container, server, isWatchPage) {
-  const url = server.url || '';
-  const srvLabel = server.label || 'Server';
-
-  container.innerHTML = `
-  <div style="position:relative;background:#000;line-height:0">
-    <div id="embedLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#08080f;z-index:3;transition:opacity 0.4s">
-      <div class="spinner"></div>
-      <div style="text-align:center">
-        <div style="color:#e2e8f0;font-size:14px;font-weight:600;margin-bottom:4px">Loading ${esc(srvLabel)}…</div>
-        <div style="color:var(--text3);font-size:12px">If nothing plays, switch to another server</div>
-      </div>
-    </div>
-    <iframe id="embedFrame"
-      src="${esc(url)}"
-      allowfullscreen
-      allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock; screen-orientation"
-      referrerpolicy="no-referrer-when-downgrade"
-      scrolling="no"
-      style="width:100%;${isWatchPage ? 'aspect-ratio:16/9' : 'height:64vh'};border:none;display:block;background:#000;opacity:0;transition:opacity 0.4s">
-    </iframe>
-  </div>`;
-
-  const iframe = document.getElementById('embedFrame');
-  const loading = document.getElementById('embedLoading');
-
-  function showPlayer() {
-    if (loading) { loading.style.opacity = '0'; setTimeout(() => { if (loading) loading.style.display = 'none'; }, 400); }
-    if (iframe) iframe.style.opacity = '1';
-  }
-
-  if (iframe) {
-    iframe.addEventListener('load', showPlayer, { once: true });
-    setTimeout(showPlayer, 12000);
-  }
+function authorizedMediaFor(subjectId, season, episode) {
+  const catalog = window.AUTHORIZED_MEDIA || {};
+  const key = season ? `${subjectId}:${season}:${episode}` : String(subjectId);
+  const media = catalog[key] || catalog[String(subjectId)];
+  if (!media?.url) return null;
+  try {
+    const url = new URL(media.url, window.location.href);
+    const hosts = (window.AUTHORIZED_MEDIA_HOSTS || []).map(h => String(h).toLowerCase());
+    if (url.protocol !== 'https:' || !hosts.includes(url.hostname.toLowerCase())) return null;
+    return { ...media, url: url.href };
+  } catch { return null; }
 }
 
-function _updateWatchServerBtns(controls) {
-  if (!controls) return;
-  controls.querySelectorAll('.watch-srv-btn[data-sidx]').forEach((b, i) => {
-    b.classList.toggle('active', parseInt(b.dataset.sidx) === _ps.idx);
+function makeNativeVideo(media, className = '') {
+  const video = document.createElement('video');
+  video.className = className;
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = 'metadata';
+  video.setAttribute('aria-label', media.title || 'Video player');
+  video.src = media.url;
+  if (media.poster) video.poster = media.poster;
+  if (media.type === 'hls' && window.Hls && window.Hls.isSupported()) {
+    const hls = new window.Hls();
+    hls.loadSource(media.url);
+    hls.attachMedia(video);
+    video._hls = hls;
+  }
+  return video;
+}
+
+function pipButton(video) {
+  const button = document.createElement('button');
+  button.className = 'watch-srv-btn pip-btn';
+  button.type = 'button';
+  button.textContent = '▣ Floating player';
+  button.title = 'Open picture-in-picture';
+  button.addEventListener('click', async () => {
+    try {
+      if (document.pictureInPictureElement === video) await document.exitPictureInPicture();
+      else if (video.requestPictureInPicture) await video.requestPictureInPicture();
+      else toast('Picture-in-picture is not supported by this browser', 'error');
+    } catch { toast('Could not open the floating player', 'error'); }
   });
-}
-function _updateModalServerBtns() {
-  document.querySelectorAll('.stream-btn[data-sidx]').forEach(b => {
-    b.classList.toggle('active', parseInt(b.dataset.sidx) === _ps.idx);
-  });
+  return button;
 }
 
-function renderWatchPlayer(embed, controls, subjectId, title, watchData, isShow, season, episode) {
-  if (!watchData?.success) {
-    embed.innerHTML = `<div class="watch-player-error"><div class="wpe-icon">🎬</div><p>Stream unavailable — try another server</p></div>`;
-    controls.innerHTML = '';
-    return;
-  }
+function showUnavailable(container, title = 'No authorized video source is configured') {
+  container.innerHTML = `<div class="watch-player-error"><div class="wpe-icon">🎬</div><p>${esc(title)}</p><small>Add a licensed HTTPS media URL in public/media-sources.js to enable playback.</small></div>`;
+}
 
-  const { previewUrl, tracks } = watchData;
-  const allServers = watchData.servers && watchData.servers.length ? watchData.servers : [];
-
-  if (!allServers.length) {
-    embed.innerHTML = previewUrl
-      ? `<video controls autoplay playsinline style="width:100%;aspect-ratio:16/9;display:block;background:#000"><source src="${esc(previewUrl)}" type="video/mp4" /></video>`
-      : `<div class="watch-player-error"><div class="wpe-icon">🎬</div><p>No stream found for this title</p></div>`;
-    controls.innerHTML = '';
-    return;
-  }
-
-  _ps.servers = allServers;
-  _ps.idx = 0;
-  _ps.context = 'watch';
-  _clearAutoTimer();
-
-  _mountEmbedFrame(embed, allServers[0], true);
-
-  const serverBtns = allServers.map((s, i) =>
-    `<button class="watch-srv-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge">${esc(s.badge)}</span>` : ''}</button>`
-  ).join('');
-
-  const dubBtns = tracks && tracks.length > 1
-    ? `<div class="watch-ctrl-divider"></div>
-       <div class="watch-ctrl-group">
-         <span class="watch-ctrl-label">Language</span>
-         ${tracks.map(t => `<button class="watch-srv-btn${t.original?' active':''}">${esc(t.label)}</button>`).join('')}
-       </div>`
-    : '';
-
-  controls.innerHTML = `
-    <div class="watch-ctrl-group">
-      <span class="watch-ctrl-label">Server</span>
-      ${serverBtns}
-    </div>
-    ${dubBtns}
-    <div class="watch-ctrl-end">
-      ${previewUrl ? `<button class="watch-srv-btn" onclick="switchWatchToPreview('${esc(previewUrl)}')">▶ Trailer</button>` : ''}
-      <button class="watch-srv-btn watch-fs-btn" onclick="watchFullscreen()" title="Fullscreen">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-        </svg>
-        Fullscreen
-      </button>
-    </div>`;
+function renderWatchPlayer(embed, controls, subjectId, title, isShow, season, episode) {
+  const media = authorizedMediaFor(subjectId, season, episode) || authorizedMediaFor(subjectId);
+  if (!media) { showUnavailable(embed); controls.innerHTML = ''; return; }
+  embed.replaceChildren(makeNativeVideo(media, 'authorized-video'));
+  controls.innerHTML = '';
+  controls.appendChild(pipButton(embed.querySelector('video')));
 }
 
 // ===== WATCH PAGE FULLSCREEN =====
@@ -1381,18 +1232,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-window.switchWatchToPreview = function(url) {
-  _clearAutoTimer();
-  const embed = document.getElementById('watchPlayerEmbed');
-  if (!embed) return;
-  embed.innerHTML = `<video controls autoplay playsinline style="width:100%;aspect-ratio:16/9;display:block;background:#000"><source src="${esc(url)}" type="video/mp4" /></video>`;
-};
-
-window.switchDubLink = function(url, btn) {
-  document.querySelectorAll('.watch-ctrl-group .watch-srv-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-};
-
 window.loadSeason = function(subjectId, seasonId, seasonNum, btn) {
   _currentShowId = subjectId;
   _currentSeasonNum = seasonNum || 1;
@@ -1412,7 +1251,7 @@ async function loadSeasonEpisodes(subjectId, seasonId, seasonNum) {
   grid.innerHTML = `<div class="episodes-grid fade-in">${episodes.map((ep, i) => {
     const epNum = ep.index || ep.episode || (i + 1);
     return `
-  <div class="episode-card" onclick="openPlayerEpisode('${subjectId}','${esc(ep.title||'Episode')}',${sNum},${epNum})" onmouseenter="prefetchStream('${subjectId}',${sNum},${epNum})">
+  <div class="episode-card" onclick="openPlayerEpisode('${subjectId}','${esc(ep.title||'Episode')}',${sNum},${epNum})">
     ${ep.cover?.url ? `<img class="ep-thumb" src="${ep.cover.url}" alt="" onerror="this.style.background='var(--bg3)'" loading="lazy" />` : `<div class="ep-thumb" style="background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:22px">🎬</div>`}
     <div class="ep-info">
       <div class="ep-num">Episode ${epNum}</div>
@@ -1426,92 +1265,33 @@ async function loadSeasonEpisodes(subjectId, seasonId, seasonNum) {
   }).join('')}</div>`;
 }
 
-// ===== PLAYER =====
-const streamCache = new Map();
-
-function _streamKey(subjectId, season, episode) {
-  return season ? `${subjectId}:${season}:${episode}` : subjectId;
-}
-
-function prefetchStream(subjectId, season, episode) {
-  const key = _streamKey(subjectId, season, episode);
-  if (!subjectId || streamCache.has(key)) return;
-  const params = new URLSearchParams({ subjectId });
-  if (season) { params.set('season', season); params.set('episode', episode); }
-  streamCache.set(key, fetch(`/proxy/watch?${params}`).then(r => r.json()));
-}
-window.prefetchStream = prefetchStream;
+// ===== MODAL PLAYER =====
 window.openPlayerEpisode = (id, title, season, episode) => openPlayer(id, title, season, episode);
-
 window.openPlayer = async function(subjectId, title, season, episode) {
   const overlay = document.getElementById('playerOverlay');
   const header = document.getElementById('playerHeader');
   const body = document.getElementById('playerBody');
   const info = document.getElementById('playerInfo');
-
   overlay.classList.add('show');
   header.textContent = title;
-  info.innerHTML = '';
-  body.innerHTML = `<div class="player-loading-bar"><div class="plb-inner"></div></div>`;
-
-  const key = _streamKey(subjectId, season, episode);
-  if (!streamCache.has(key)) prefetchStream(subjectId, season, episode);
-  const watchData = await streamCache.get(key);
-  renderPlayerContent(body, info, subjectId, title, watchData);
+  body.replaceChildren();
+  info.replaceChildren();
+  const media = authorizedMediaFor(subjectId, season, episode) || authorizedMediaFor(subjectId);
+  if (!media) {
+    body.innerHTML = `<div class="player-error"><div class="icon">🎬</div><h3>No authorized video source is configured</h3><p>Add a licensed HTTPS media URL in public/media-sources.js.</p></div>`;
+    return;
+  }
+  const video = makeNativeVideo(media, 'authorized-video');
+  body.replaceChildren(video);
+  info.appendChild(pipButton(video));
+  video.addEventListener('leavepictureinpicture', () => {
+    if (!overlay.classList.contains('show')) {
+      if (video._hls) video._hls.destroy();
+      video.pause(); video.removeAttribute('src'); video.load(); video.remove();
+    }
+  });
+  try { await video.play(); } catch { /* Autoplay is optional; native controls remain available. */ }
 };
-
-function _mountModalEmbed(body, server) {
-  _mountEmbedFrame(body, server, false);
-}
-
-function renderPlayerContent(body, info, subjectId, title, watchData) {
-  if (!watchData?.success) {
-    body.innerHTML = playerError('Could not load this title.');
-    return;
-  }
-
-  const { previewUrl, tracks } = watchData;
-  const allServers = watchData.servers && watchData.servers.length ? watchData.servers : [];
-
-  if (!allServers.length && !previewUrl) {
-    body.innerHTML = playerError('No stream found for this title.');
-    return;
-  }
-
-  if (allServers.length) {
-    _ps.servers = allServers;
-    _ps.idx = 0;
-    _ps.context = 'modal';
-    _clearAutoTimer();
-
-    _mountModalEmbed(body, allServers[0]);
-
-    const serverBtns = allServers.map((s, i) =>
-      `<button class="stream-btn${i===0?' active':''}" data-sidx="${i}" onclick="playerSelectServer(${i})">${esc(s.label)}${s.badge ? ` <span class="srv-badge">${esc(s.badge)}</span>` : ''}</button>`
-    ).join('');
-
-    const dubBtns = tracks && tracks.length > 1
-      ? `<div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:10px;margin-bottom:6px">Language</div>
-         <div class="player-streams">${tracks.map(t => `<button class="stream-btn${t.original?' active':''}">${esc(t.label)}</button>`).join('')}</div>`
-      : '';
-
-    info.innerHTML = `
-      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Server</div>
-      <div class="player-streams">${serverBtns}</div>
-      ${dubBtns}`;
-    return;
-  }
-
-  if (previewUrl) {
-    body.innerHTML = `<video controls autoplay playsinline style="width:100%;height:64vh;display:block;background:#000"><source src="${esc(previewUrl)}" type="video/mp4" /></video>`;
-  } else {
-    body.innerHTML = playerError('No stream found.');
-  }
-}
-
-function playerError(msg) {
-  return `<div class="player-error"><div class="icon">🎬</div><h3>${msg}</h3><p style="font-size:13px;margin-top:6px">Try a different server</p></div>`;
-}
 
 // ===== PLAYER OVERLAY =====
 const playerOverlay = document.getElementById('playerOverlay');
@@ -1532,13 +1312,13 @@ playerFullscreenBtn?.addEventListener('click', () => {
 });
 
 function closePlayer() {
-  _clearAutoTimer();
   playerOverlay?.classList.remove('show');
   const body = document.getElementById('playerBody');
   if (body) {
     const vid = body.querySelector('video');
-    if (vid) { if (vid._hls) { vid._hls.destroy(); } vid.pause(); vid.src = ''; }
-    body.innerHTML = '';
+    const pipActive = vid && document.pictureInPictureElement === vid;
+    if (vid && !pipActive) { if (vid._hls) vid._hls.destroy(); vid.pause(); vid.removeAttribute('src'); vid.load(); }
+    if (!pipActive) body.replaceChildren();
   }
   const info = document.getElementById('playerInfo');
   if (info) info.innerHTML = '';
@@ -1602,7 +1382,7 @@ function renderFooter() {
     <div class="footer-links">
       <a class="footer-link" href="/" onclick="navigate('/');return false;">Home</a>
       <a class="footer-link" href="/movies" onclick="navigate('/movies');return false;">Movies</a>
-      <a class="footer-link" href="/shows" onclick="navigate('/shows');return false;">TV Shows</a>
+      <a class="footer-link" href="/series" onclick="navigate('/series');return false;">Series</a>
       <a class="footer-link" href="/live" onclick="navigate('/live');return false;">Live TV</a>
       <a class="footer-link" href="/sports" onclick="navigate('/sports');return false;">Sports</a>
       <a class="footer-link" href="/trending" onclick="navigate('/trending');return false;">Trending</a>

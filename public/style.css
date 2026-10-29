@@ -1292,3 +1292,8 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Native authorized HTML5 video and picture-in-picture action */
+.authorized-video { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; }
+.pip-btn { margin: 8px; }
+.watch-player-error small { display: block; margin-top: 10px; color: var(--text3); }

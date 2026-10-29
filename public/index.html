@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Primary SEO -->
-  <title>FreeFlixx T — Movies, Series &amp; Live Sports</title>
-  <meta name="description" content="Explore movies, series, live TV, football scores, fixtures and sports news on FreeFlixx T." />
+  <title>FreeFlixx T — Movies, Series &amp; Sports</title>
+  <meta name="description" content="Explore movie and series metadata, sports updates, and episode guides on FreeFlixx T." />
   <meta name="keywords" content="FreeFlixx T, movies, series, live TV, football scores, fixtures, sports news" />
   <meta name="author" content="FreeFlixx T" />
   <meta name="robots" content="index, follow" />
@@ -16,15 +16,15 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="FreeFlixx T" />
   <meta property="og:url" content="/" id="ogUrl" />
-  <meta property="og:title" content="FreeFlixx T — Movies, Series &amp; Live Sports" id="ogTitle" />
-  <meta property="og:description" content="Explore movies, series, live TV, football scores, fixtures and sports news." id="ogDesc" />
+  <meta property="og:title" content="FreeFlixx T — Movies, Series &amp; Sports" id="ogTitle" />
+  <meta property="og:description" content="Explore movie and series metadata, sports updates, and episode guides." id="ogDesc" />
   <meta property="og:image" content="/og-image.svg" />
   <meta property="og:locale" content="en_US" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="FreeFlixx T — Movies, Series &amp; Live Sports" id="twTitle" />
-  <meta name="twitter:description" content="Explore movies, series, live TV, football scores, fixtures and sports news." id="twDesc" />
+  <meta name="twitter:title" content="FreeFlixx T — Movies, Series &amp; Sports" id="twTitle" />
+  <meta name="twitter:description" content="Explore movie and series metadata, sports updates, and episode guides." id="twDesc" />
   <meta name="twitter:image" content="/og-image.svg" id="twImage" />
 
   <!-- PWA / Theme -->
@@ -45,7 +45,7 @@
     "@type": "WebSite",
     "name": "FreeFlixx T",
     "url": "/",
-    "description": "Explore movies, series, live TV, football scores, fixtures and sports news on FreeFlixx T.",
+    "description": "Explore movie and series metadata, sports updates, and episode guides on FreeFlixx T.",
     "inLanguage": "en-US",
     "potentialAction": {
       "@type": "SearchAction",
@@ -82,7 +82,7 @@
       <div class="nav-links" role="menubar">
         <a href="/" class="nav-link" data-page="home" onclick="navigate('/');return false;" role="menuitem">Home</a>
         <a href="/movies" class="nav-link" data-page="movies" onclick="navigate('/movies');return false;" role="menuitem">Movies</a>
-        <a href="/shows" class="nav-link" data-page="shows" onclick="navigate('/shows');return false;" role="menuitem">TV Shows</a>
+        <a href="/series" class="nav-link" data-page="series" onclick="navigate('/series');return false;" role="menuitem">Series</a>
         <a href="/trending" class="nav-link" data-page="trending" onclick="navigate('/trending');return false;" role="menuitem">Trending</a>
         <a href="/browse" class="nav-link" data-page="browse" onclick="navigate('/browse');return false;" role="menuitem">Browse</a>
         <a href="/live" class="nav-link" data-page="live" onclick="navigate('/live');return false;" role="menuitem">📡 Live</a>
@@ -112,7 +112,7 @@
   <nav class="mobile-menu" id="mobileMenu" aria-label="Mobile navigation">
     <a href="/" class="nav-link" data-page="home" onclick="navigate('/');mobileMenu.classList.remove('open');return false;">Home</a>
     <a href="/movies" class="nav-link" data-page="movies" onclick="navigate('/movies');mobileMenu.classList.remove('open');return false;">Movies</a>
-    <a href="/shows" class="nav-link" data-page="shows" onclick="navigate('/shows');mobileMenu.classList.remove('open');return false;">TV Shows</a>
+    <a href="/series" class="nav-link" data-page="series" onclick="navigate('/series');mobileMenu.classList.remove('open');return false;">Series</a>
     <a href="/trending" class="nav-link" data-page="trending" onclick="navigate('/trending');mobileMenu.classList.remove('open');return false;">Trending</a>
     <a href="/browse" class="nav-link" data-page="browse" onclick="navigate('/browse');mobileMenu.classList.remove('open');return false;">Browse</a>
     <a href="/live" class="nav-link" data-page="live" onclick="navigate('/live');mobileMenu.classList.remove('open');return false;">📡 Live TV</a>
@@ -152,6 +152,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+  <script src="/media-sources.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
