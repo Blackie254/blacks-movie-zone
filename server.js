@@ -103,9 +103,10 @@ app.get('/proxy/rich-detail', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/rich-detail?subjectId=${subjectId}`));
 }));
 
-app.get('/proxy/play', wrap(async (req, res) => {
+app.get('/proxy/seasons', wrap(async (req, res) => {
   const { subjectId } = req.query;
-  res.json(await proxyFetch(`${API_BASE}/play?subjectId=${subjectId}`));
+  if (!subjectId) return res.status(400).json({ success: false, error: 'subjectId is required' });
+  res.json(await proxyFetch(`${API_BASE}/seasons?subjectId=${encodeURIComponent(subjectId)}`));
 }));
 
 app.get('/proxy/recommend', wrap(async (req, res) => {
@@ -114,11 +115,52 @@ app.get('/proxy/recommend', wrap(async (req, res) => {
 }));
 
 app.get('/proxy/browse', wrap(async (req, res) => {
-  const { subjectType = 1, genre, countryName, page = 1, perPage = 20 } = req.query;
-  let url = `${API_BASE}/browse?subjectType=${subjectType}&page=${page}&perPage=${perPage}`;
+  const { subjectType, genre, countryName } = req.query;
+  const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+  const perPage = Math.min(48, Math.max(1, Number.parseInt(req.query.perPage, 10) || 20));
+  const matches = item => {
+    if (genre && !String(item.genre || '').toLowerCase().split(',').some(value => value.trim() === String(genre).toLowerCase())) return false;
+    if (countryName && !String(item.countryName || '').toLowerCase().includes(String(countryName).toLowerCase())) return false;
+    return true;
+  };
+
+  // MovieAPI's /browse rejects subjectType=1. Its /hot endpoint is the supported movie feed.
+  if (subjectType === '1' || !subjectType || subjectType === '0') {
+    const [hot, trending, ranking, catalog] = await Promise.all([
+      proxyFetch(`${API_BASE}/hot`),
+      proxyFetch(`${API_BASE}/trending?page=0&perPage=36`),
+      proxyFetch(`${API_BASE}/ranking`),
+      !subjectType || subjectType === '0'
+        ? proxyFetch(`${API_BASE}/browse?subjectType=2&page=1&perPage=24${genre ? `&genre=${encodeURIComponent(genre)}` : ''}${countryName ? `&countryName=${encodeURIComponent(countryName)}` : ''}`)
+        : Promise.resolve(null),
+    ]);
+    const movieItems = [
+      ...(hot?.data?.movie || []),
+      ...(trending?.data?.subjectList || []).filter(item => item.subjectType === 1),
+      ...(ranking?.data?.subjectList || []).filter(item => item.subjectType === 1),
+    ];
+    const browseItems = (catalog?.data?.items || catalog?.data?.subjectList || [])
+      .filter(item => item.subjectType === 1 || item.subjectType === 2);
+    const unique = new Map([...browseItems, ...movieItems].filter(matches).map(item => [String(item.subjectId), item]));
+    const all = [...unique.values()].sort((a, b) => String(b.releaseDate || '').localeCompare(String(a.releaseDate || '')));
+    const start = (page - 1) * perPage;
+    return res.json({
+      success: true,
+      data: {
+        items: all.slice(start, start + perPage),
+        pager: { page, perPage, totalCount: all.length, hasMore: start + perPage < all.length },
+      },
+    });
+  }
+
+  let url = `${API_BASE}/browse?subjectType=${encodeURIComponent(subjectType)}&page=${page}&perPage=${perPage}`;
   if (genre) url += `&genre=${encodeURIComponent(genre)}`;
   if (countryName) url += `&countryName=${encodeURIComponent(countryName)}`;
   res.json(await proxyFetch(url));
+}));
+
+app.get('/proxy/coming-soon', wrap(async (req, res) => {
+  res.json(await proxyFetch(`${API_BASE}/coming-soon`));
 }));
 
 app.get('/proxy/hot', wrap(async (req, res) => {
@@ -184,7 +226,7 @@ app.get('/proxy/staff/related', wrap(async (req, res) => {
 // Playback sources are deliberately not resolved or proxied by this server.
 
 // Legacy playback paths are explicitly retired to avoid accidentally serving scraped streams.
-for (const route of ['/proxy/watch', '/proxy/stream', '/proxy/mb-stream', '/proxy/video']) {
+for (const route of ['/proxy/watch', '/proxy/play', '/proxy/stream', '/proxy/mb-stream', '/proxy/video']) {
   app.all(route, (req, res) => res.status(410).json({ success: false, error: 'Third-party stream resolution is not supported. Configure authorized media sources in public/media-sources.js.' }));
 }
 

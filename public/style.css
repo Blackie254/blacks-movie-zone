@@ -1479,3 +1479,18 @@ body::before {
   .btn-play,.btn-info,.hero-btn-watch,.btn-primary,.load-more-btn { min-height: 44px; }
   .episode-card { border-radius: 9px; }
 }
+
+/* Mobile-friendly media setup notice and compact season metadata */
+.watch-player-error {
+  box-sizing: border-box;
+  min-height: 0;
+  padding: clamp(18px, 5vw, 42px);
+  text-align: center;
+  line-height: 1.45;
+}
+.watch-player-error p,
+.watch-player-error small { max-width: 640px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+.watch-player-error p { font-size: clamp(14px, 2.3vw, 18px); }
+.watch-player-error small { font-size: clamp(11px, 1.7vw, 13px); color: #a7a7a7; }
+.season-tab small { display: block; margin-top: 4px; color: var(--text3); font-size: 10px; font-weight: 500; }
+.season-tab.active small { color: rgba(255,255,255,.82); }

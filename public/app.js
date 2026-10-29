@@ -382,23 +382,23 @@ async function renderHome() {
   <div class="section"><div class="section-header"><h2 class="section-title">🏆 Top Ranked</h2></div><div class="rank-tabs" id="rankTabs"></div>${makeRow('rankCards', skeletonRow())}</div>
   <div class="section" id="homeMoviesSection"><div class="section-header"><h2 class="section-title" id="homeMoviesTitle">🎬 Popular Movies</h2><a class="section-more" href="/movies" onclick="navigate('/movies');return false;">See All →</a></div>${makeRow('moviesRow', skeletonRow())}</div>
   <div class="section" id="homeShowsSection"><div class="section-header"><h2 class="section-title" id="homeShowsTitle">📺 Series &amp; Shows</h2><a class="section-more" href="/series" onclick="navigate('/series');return false;">See All →</a></div>${makeRow('showsRow', skeletonRow())}</div>
-  <div class="section"><div class="section-header"><h2 class="section-title">🆕 New Arrivals</h2><a class="section-more" href="/new" onclick="navigate('/new');return false;">See All →</a></div>${makeRow('newRow', skeletonRow())}</div>
+  <div class="section"><div class="section-header"><h2 class="section-title">🆕 Coming Soon</h2><a class="section-more" href="/new" onclick="navigate('/new');return false;">See All →</a></div>${makeRow('newRow', skeletonRow())}</div>
   ${renderFooter()}`);
 
-  const [trending, ranking, movies, shows, newArrivals] = await Promise.all([
+  const [trending, ranking, movies, shows, comingSoon] = await Promise.all([
     api('trending', { page: 0, perPage: 18 }),
     api('ranking'),
-    api('browse', { subjectType: 1, genre: 'Action', page: 1, perPage: 18 }),
-    api('browse', { subjectType: 2, genre: 'Drama', page: 1, perPage: 18 }),
-    api('newtoxic/latest', { page: 1 }),
+    api('browse', { subjectType: 1, page: 1, perPage: 18 }),
+    api('browse', { subjectType: 2, page: 1, perPage: 18 }),
+    api('coming-soon'),
   ]);
 
   const trendList = trending?.data?.subjectList || [];
   const rankTabs = ranking?.data?.rankingList || [];
   const rankItems = ranking?.data?.subjectList || [];
-  const mItems = movies?.data?.subjectList || movies?.data?.items || [];
+  const mItems = movies?.data?.items || movies?.data?.subjectList || [];
   const sItems = shows?.data?.subjectList || shows?.data?.items || [];
-  const ntItems = Array.isArray(newArrivals?.data) ? newArrivals.data : (newArrivals?.data?.list || newArrivals?.list || []);
+  const ntItems = (comingSoon?.data?.subjects || []).filter(item => item.subjectType === 1 || item.subjectType === 2);
 
   if (trendList.length) buildHero(trendList.slice(0, 6));
 
@@ -406,7 +406,7 @@ async function renderHome() {
   fill('rankCards', rankItems.slice(0, 18).map(makeCard).join(''));
   fill('moviesRow', mItems.map(makeCard).join('') || emptyHtml('🎬', 'No movies yet'));
   fill('showsRow', sItems.map(makeCard).join('') || emptyHtml('📺', 'No shows yet'));
-  fill('newRow', ntItems.length ? ntItems.map(makeNtCard).join('') : emptyHtml('🆕', 'No new arrivals'));
+  fill('newRow', ntItems.length ? ntItems.map(makeCard).join('') : emptyHtml('🆕', 'No upcoming titles'));
 
   const tabsEl = document.getElementById('rankTabs');
   if (tabsEl && rankTabs.length) {
@@ -791,23 +791,21 @@ async function fetchBrowse(reset) {
 
 // ===== NEW ARRIVALS =====
 async function renderNewArrivals() {
-  updateSEO({ title: 'New Arrivals', description: 'Discover recently added movies and shows on FreeFlixx T.' });
+  updateSEO({ title: 'Coming Soon', description: 'Browse upcoming movie and series releases from the catalog.' });
   setApp(`
   <div class="page-header fade-up">
-    <h1 class="page-title">🆕 New Arrivals</h1>
-    <p class="page-subtitle">The freshest titles added this week</p>
+    <h1 class="page-title">🆕 Coming Soon</h1>
+    <p class="page-subtitle">Upcoming movie and series releases from the catalog</p>
   </div>
   <div class="section">${skeletonGrid(24)}</div>
   ${renderFooter()}`);
 
-  const data = await api('newtoxic/latest', { page: 1 });
-  const items = (Array.isArray(data?.data) ? data.data : [])
-    .concat(Array.isArray(data?.data?.list) ? data.data.list : [])
-    .concat(Array.isArray(data?.list) ? data.list : []);
+  const data = await api('coming-soon');
+  const items = (data?.data?.subjects || []).filter(item => item.subjectType === 1 || item.subjectType === 2);
   const sec = app.querySelector('.section');
   if (sec) sec.innerHTML = items.length
-    ? `<div class="cards-grid fade-in">${items.map(makeNtCard).join('')}</div>`
-    : emptyHtml('🆕', 'No new arrivals yet', 'Check back soon');
+    ? `<div class="cards-grid fade-in">${items.map(makeCard).join('')}</div>`
+    : emptyHtml('🆕', 'No upcoming titles', 'Check back soon');
 }
 
 // ===== LIVE TV =====
@@ -1009,7 +1007,7 @@ async function renderDetail(id) {
       </div>
     </div>
     <div class="watch-controls-bar" id="watchControls">
-      <div class="watch-ctrl-group"><span class="watch-ctrl-label">Loading servers…</span></div>
+      <div class="watch-ctrl-group"><span class="watch-ctrl-label">Authorized playback source</span></div>
     </div>
     <div class="watch-info-row" id="watchInfoRow">
       <div class="watch-info-skeleton">
@@ -1040,12 +1038,13 @@ async function renderDetail(id) {
   updateSEO({ title: `Watch ${d.title}${yearStr ? ' (' + yearStr + ')' : ''}`, description: seoDesc, image: d.cover?.url || undefined });
 
   const isShow = d.subjectType === 2;
+  const seasonMeta = isShow ? await api('seasons', { subjectId: id }) : null;
+  const seasons = seasonMeta?.data?.seasons || d.seasonList || d.seasons || [];
   const genres = (d.genre || '').split(',').map(g => g.trim()).filter(Boolean);
   const rating = d.imdbRatingValue;
   const year = d.releaseDate?.slice(0, 4) || '';
   const dur = d.duration ? `${Math.floor(d.duration / 60)}m` : '';
   const recItems = rec?.data?.subjectList || [];
-  const seasons = d.seasonList || d.seasons || [];
   const cast = d.staffList || [];
 
   const infoRow = document.getElementById('watchInfoRow');
@@ -1090,13 +1089,15 @@ async function renderDetail(id) {
     <div class="watch-section">
       <div class="section-header"><h3 class="section-title">Episodes</h3></div>
       <div class="seasons-tabs" id="seasonsTabs">
-        ${seasons.map((s, i) => `<button class="season-tab${i===0?' active':''}" onclick="loadSeason('${id}','${s.seasonId||s.id||id}',${s.index||i+1},this)">Season ${s.index||i+1}</button>`).join('')}
+        ${seasons.map((s, i) => { const number = Number(s.season || s.index || i + 1); return `<button class="season-tab${i===0?' active':''}" onclick="loadSeason('${id}','${id}',${number},this)">Season ${number}<small>${Number(s.episodes) || 0} episodes</small></button>`; }).join('')}
       </div>
       <div id="episodesGrid" class="episodes-grid">
         <div class="spinner-wrap" style="min-height:140px"><div class="spinner"></div></div>
       </div>
     </div>`);
-    loadSeasonEpisodes(id, seasons[0].seasonId || seasons[0].id || id, 1);
+    loadSeasonEpisodes(id, id, Number(seasons[0].season || seasons[0].index || 1));
+  } else if (isShow) {
+    page.insertAdjacentHTML('beforeend', `<div class="watch-section"><div class="section-header"><h3 class="section-title">Episodes</h3></div>${emptyHtml('📺', 'Episode guide is temporarily unavailable', 'Try refreshing this title in a moment.')}</div>`);
   }
 
   if (cast.length) {
@@ -1176,7 +1177,7 @@ function pipButton(video) {
 }
 
 function showUnavailable(container, title = 'No authorized video source is configured') {
-  container.innerHTML = `<div class="watch-player-error"><div class="wpe-icon">🎬</div><p>${esc(title)}</p><small>Add a licensed HTTPS media URL in public/media-sources.js to enable playback.</small></div>`;
+  container.innerHTML = `<div class="watch-player-error"><div class="wpe-icon">🎬</div><p>${esc(title)}</p><small>Catalog listings do not include playback rights. The site owner must configure an authorized HTTPS media source in public/media-sources.js.</small></div>`;
 }
 
 function renderWatchPlayer(embed, controls, subjectId, title, isShow, season, episode) {
@@ -1243,20 +1244,22 @@ window.loadSeason = function(subjectId, seasonId, seasonNum, btn) {
 
 async function loadSeasonEpisodes(subjectId, seasonId, seasonNum) {
   const sNum = seasonNum || _currentSeasonNum || 1;
-  const data = await api('play', { subjectId: seasonId || subjectId });
-  const episodes = data?.data?.episodeList || data?.data?.episodes || [];
+  const data = await api('seasons', { subjectId });
+  const season = (data?.data?.seasons || []).find(item => Number(item.season || item.index) === Number(sNum));
+  const episodeCount = Math.min(500, Math.max(0, Number(season?.episodes) || 0));
+  const episodes = Array.from({ length: episodeCount }, (_, i) => ({ episode: i + 1 }));
   const grid = document.getElementById('episodesGrid');
   if (!grid) return;
-  if (!episodes.length) { grid.innerHTML = emptyHtml('📺', 'No episodes found'); return; }
+  if (!episodes.length) { grid.innerHTML = emptyHtml('📺', 'Episode list unavailable', 'The catalog did not return episodes for this season.'); return; }
   grid.innerHTML = `<div class="episodes-grid fade-in">${episodes.map((ep, i) => {
-    const epNum = ep.index || ep.episode || (i + 1);
+    const epNum = ep.episode || (i + 1);
     return `
-  <div class="episode-card" onclick="openPlayerEpisode('${subjectId}','${esc(ep.title||'Episode')}',${sNum},${epNum})">
-    ${ep.cover?.url ? `<img class="ep-thumb" src="${ep.cover.url}" alt="" onerror="this.style.background='var(--bg3)'" loading="lazy" />` : `<div class="ep-thumb" style="background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:22px">🎬</div>`}
+  <div class="episode-card" onclick="openPlayerEpisode('${subjectId}','Season ${sNum} · Episode ${epNum}',${sNum},${epNum})">
+    <div class="ep-thumb" style="background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:22px">🎬</div>
     <div class="ep-info">
       <div class="ep-num">Episode ${epNum}</div>
-      <div class="ep-title">${esc(ep.title||'Episode')}</div>
-      <div class="ep-desc">${esc(ep.description||'')}</div>
+      <div class="ep-title">Season ${sNum} · Episode ${epNum}</div>
+      <div class="ep-desc">Select to play from an authorized source configured by the site owner.</div>
     </div>
     <div class="ep-play-icon">
       <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -1278,7 +1281,7 @@ window.openPlayer = async function(subjectId, title, season, episode) {
   info.replaceChildren();
   const media = authorizedMediaFor(subjectId, season, episode) || authorizedMediaFor(subjectId);
   if (!media) {
-    body.innerHTML = `<div class="player-error"><div class="icon">🎬</div><h3>No authorized video source is configured</h3><p>Add a licensed HTTPS media URL in public/media-sources.js.</p></div>`;
+    body.innerHTML = `<div class="player-error"><div class="icon">🎬</div><h3>No authorized video source is configured</h3><p>Catalog listings do not include playback rights. The site owner must configure an authorized HTTPS media source in public/media-sources.js.</p></div>`;
     return;
   }
   const video = makeNativeVideo(media, 'authorized-video');
