@@ -43,6 +43,7 @@ function router() {
   const parts = location.pathname.split('/').filter(Boolean);
   const page = parts[0] || 'home';
   const id = parts[1];
+  if (page === 'player-test') return renderPlayerTest();
   if (page === 'detail' && id) return renderDetail(id);
   if (page === 'staff' && id) return renderStaff(id);
   if (page === 'search') return renderSearch(new URLSearchParams(location.search).get('q') || '');
@@ -1269,6 +1270,23 @@ function renderWatchPlayer(embed, controls, subjectId, title, isShow, season, ep
   embed.replaceChildren(makeNativeVideo(media, 'authorized-video'));
   controls.innerHTML = '';
   controls.appendChild(pipButton(embed.querySelector('video')));
+}
+
+function renderPlayerTest() {
+  updateSEO({ title: 'Player Test', description: 'Test the FreeFlixx video player with a CC0 public-domain sample clip.' });
+  setApp(`
+  <section class="page-header fade-up">
+    <h1 class="page-title">Video Player Test</h1>
+    <p class="page-subtitle">A separate demo clip to check playback and player controls. This does not change any movie or episode source.</p>
+  </section>
+  <section class="player-test-panel fade-in">
+    <div class="player-test-mark">CC0</div>
+    <h2>Sample public-domain video</h2>
+    <p>The MDN flower sample is released under CC0 1.0. Open the custom player and test play/pause, seeking, volume, fullscreen, and floating-player support.</p>
+    <button class="load-more-btn" type="button" onclick="openPlayer('__sample_public_domain__','CC0 sample · MDN flower video')">Open sample in player</button>
+    <a class="player-test-license" href="https://github.com/mdn/interactive-examples/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">View sample license</a>
+  </section>
+  ${renderFooter()}`);
 }
 
 // ===== WATCH PAGE FULLSCREEN =====

@@ -1,13 +1,14 @@
 /*
- * Add only HTTPS playback URLs for content you own or are licensed to distribute.
- * Add each media host to AUTHORIZED_MEDIA_HOSTS. HLS entries require type: "hls".
- * Movie key: "SUBJECT_ID". Episode key: "SUBJECT_ID:SEASON:EPISODE".
- * Example (replace all placeholders; do not publish an unlicensed stream URL):
- * window.AUTHORIZED_MEDIA_HOSTS = ['media.example.com'];
- * window.AUTHORIZED_MEDIA = {
- *   '12345': { url: 'https://media.example.com/movie.mp4', title: 'Licensed movie' },
- *   '67890:1:1': { url: 'https://media.example.com/s1e1.m3u8', type: 'hls', title: 'Episode 1' }
- * };
+ * Owner-authorized HTTPS sources only. The demo below is isolated from MovieAPI IDs.
+ * The MDN flower sample in its interactive-examples repository is CC0 1.0.
+ * License: https://github.com/mdn/interactive-examples/blob/main/LICENSE
+ * Example page: https://interactive-examples.mdn.mozilla.net/pages/tabbed/video.html
  */
-window.AUTHORIZED_MEDIA_HOSTS = [];
-window.AUTHORIZED_MEDIA = {};
+window.AUTHORIZED_MEDIA_HOSTS = ['interactive-examples.mdn.mozilla.net'];
+window.AUTHORIZED_MEDIA = {
+  '__sample_public_domain__': {
+    url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+    type: 'mp4',
+    title: 'CC0 sample video'
+  }
+};

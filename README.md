@@ -12,6 +12,8 @@ A vanilla JavaScript movie and series discovery site. MovieAPI is used for title
 
 Edit `public/media-sources.js` and add only HTTPS media URLs for content you have permission to distribute. Add the source's hostname to `AUTHORIZED_MEDIA_HOSTS`. Use a title ID for a movie or `TITLE_ID:SEASON:EPISODE` for a specific episode. HLS sources can use `type: 'hls'`. Entries not on the host allowlist are rejected in the browser.
 
+Open `/player-test` to test the player with the isolated MDN flower video sample, dedicated to CC0 1.0 in the MDN interactive-examples repository. The demo uses its own sentinel key and does not associate the sample with any movie or series catalog ID.
+
 The player uses the browser's native controls and Picture-in-Picture API where supported. Selecting a title without a configured authorized source shows a setup notice instead of looking for a third-party stream.
 
 ## Catalog API
