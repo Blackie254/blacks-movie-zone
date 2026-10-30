@@ -1494,3 +1494,14 @@ body::before {
 .watch-player-error small { font-size: clamp(11px, 1.7vw, 13px); color: #a7a7a7; }
 .season-tab small { display: block; margin-top: 4px; color: var(--text3); font-size: 10px; font-weight: 500; }
 .season-tab.active small { color: rgba(255,255,255,.82); }
+
+/* MovieAPI catalog filter controls */
+.browse-api-filters { gap: 12px; margin-top: 16px; }
+.browse-api-filters label { display: inline-flex; align-items: center; gap: 8px; color: var(--text2); font-size: 12px; }
+.browse-api-filters select { min-height: 38px; padding: 7px 30px 7px 11px; color: var(--text); background: var(--bg3); border: 1px solid var(--border2); border-radius: 9px; font: inherit; }
+.browse-api-filters select:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 580px) {
+  .browse-api-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .browse-api-filters label { justify-content: space-between; }
+  .browse-api-filters select { min-width: 0; max-width: 58%; }
+}

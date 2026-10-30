@@ -201,6 +201,17 @@ function makeCard(item) {
   </div>`;
 }
 
+function makeShowboxCard(item) {
+  const title = item.title || 'Untitled';
+  const poster = item.poster || '';
+  const year = item.year || '';
+  const genre = String(item.cats || '').split(',').slice(0, 2).join(' · ');
+  return `<article class="card" onclick="toast('Catalog metadata only. Playback is not provided for this source.')">
+    <div class="card-img-wrap">${poster ? `<img class="card-poster" src="${esc(poster)}" alt="${esc(title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-poster-placeholder" style="display:none">🎬</div>` : `<div class="card-poster-placeholder">🎬</div>`}<span class="card-badge badge-tv">Catalog</span></div>
+    <div class="card-info"><div class="card-title" title="${esc(title)}">${esc(title)}</div><div class="card-meta"><span>${esc(genre)}${year ? ' · ' + esc(String(year)) : ''}</span>${item.imdb_rating ? `<span class="card-rating">★ ${esc(String(item.imdb_rating))}</span>` : ''}</div></div>
+  </article>`;
+}
+
 function makeNtCard(item) {
   const title = item.title || item.name || 'Untitled';
   const poster = item.poster || item.cover || item.thumbnail || '';
@@ -640,15 +651,26 @@ window.refreshSports = function() {
 
 // ===== SHOWS =====
 let showPage = 1;
+let showFeed = 'all';
+let curShowGenre = '';
+let showFetchId = 0;
 async function renderShows() {
   showPage = 1;
-  updateSEO({ title: 'Series', description: 'Browse series by genre, explore seasons, and view episode guides.' });
+  showFeed = 'all';
+  curShowGenre = '';
+  updateSEO({ title: 'Series', description: 'Browse series, animated series, and Korean dramas.' });
   setApp(`
   <div class="page-header fade-up">
     <h1 class="page-title">📺 Series</h1>
-    <p class="page-subtitle">Browse series, seasons, and episode guides</p>
+    <p class="page-subtitle">Explore series, animation, and Korean dramas</p>
   </div>
   <div class="pill-section">
+    <div class="pill-label">Series collections</div>
+    <div class="pill-row" id="showFeedTabs">
+      <span class="pill active" onclick="setShowFeed('all',this)">All Series</span>
+      <span class="pill" onclick="setShowFeed('animation',this)">Animation</span>
+      <span class="pill" onclick="setShowFeed('kdrama',this)">K-Drama</span>
+    </div>
     <div class="pill-label">Genre</div>
     <div class="pill-row" id="showGenrePills">
       <span class="pill active" onclick="setShowGenre('',this)">All</span>
@@ -662,48 +684,65 @@ async function renderShows() {
     </div>
   </div>
   ${renderFooter()}`);
-
-  await fetchShows(true, '');
+  await fetchShows(true);
 }
 
-let curShowGenre = '';
+window.setShowFeed = async function(feed, el) {
+  showFeed = feed;
+  showPage = 1;
+  curShowGenre = '';
+  document.querySelectorAll('#showFeedTabs .pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('#showGenrePills .pill').forEach((p, i) => p.classList.toggle('active', i === 0));
+  await fetchShows(true);
+};
 window.setShowGenre = async function(genre, el) {
-  curShowGenre = genre; showPage = 1;
+  curShowGenre = genre;
+  showPage = 1;
+  showFeed = 'all';
+  document.querySelectorAll('#showFeedTabs .pill').forEach((p, i) => p.classList.toggle('active', i === 0));
   document.querySelectorAll('#showGenrePills .pill').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
-  await fetchShows(true, genre);
+  await fetchShows(true);
 };
 window.loadMoreShows = async function() {
   const btn = document.getElementById('showMoreBtn');
   if (btn) { btn.textContent = 'Loading…'; btn.disabled = true; }
   showPage++;
-  await fetchShows(false, curShowGenre);
+  await fetchShows(false);
   if (btn) { btn.textContent = 'Load More'; btn.disabled = false; }
 };
-async function fetchShows(reset, genre) {
+async function fetchShows(reset) {
+  const requestId = ++showFetchId;
   const grid = document.getElementById('showsGrid');
   const lmw = document.getElementById('showMoreWrap');
   if (!grid) return;
   if (reset) grid.innerHTML = skeletonGrid();
-  const params = { subjectType: 2, page: showPage, perPage: 24 };
-  if (genre) params.genre = genre;
-  const data = await api('browse', params);
+  const pageSize = 28;
+  let endpoint = 'browse';
+  const params = { page: showPage, perPage: pageSize };
+  if (showFeed === 'animation') { endpoint = 'tv-series'; params.genre = 'Animation'; }
+  else if (showFeed === 'kdrama') endpoint = 'kdrama';
+  else { params.subjectType = 2; if (curShowGenre) params.genre = curShowGenre; }
+  const data = await api(endpoint, params);
+  if (requestId !== showFetchId) return;
   const items = data?.data?.subjectList || data?.data?.items || [];
   if (reset) {
     grid.innerHTML = items.length
       ? `<div class="cards-grid fade-in">${items.map(makeCard).join('')}</div>`
-      : emptyHtml('📺', 'No shows found');
+      : emptyHtml('📺', 'No shows found', data?.error || 'Try another collection or genre');
   } else {
     const cg = grid.querySelector('.cards-grid');
     if (cg) cg.insertAdjacentHTML('beforeend', items.map(makeCard).join(''));
   }
-  if (lmw) lmw.style.display = items.length >= 24 ? 'flex' : 'none';
+  if (lmw) lmw.style.display = items.length >= pageSize ? 'flex' : 'none';
 }
 
 // ===== BROWSE =====
-let bp = 1, btype = 0, bgenre = '', bcountry = '';
+let bp = 1, btype = 0, bgenre = '', bcountry = '', bchannel = '', byear = '', bsort = '';
+let browseFetchId = 0;
 async function renderBrowse(defaultType) {
-  btype = defaultType; bp = 1; bgenre = ''; bcountry = '';
+  btype = defaultType; bp = 1; bgenre = ''; bcountry = ''; bchannel = ''; byear = ''; bsort = '';
   const titleText = defaultType === 1 ? 'Movies' : 'Browse All';
   updateSEO({ title: titleText, description: `Browse movies and TV shows on FreeFlixx T.` });
 
@@ -729,6 +768,24 @@ async function renderBrowse(defaultType) {
     <div class="pill-row" id="browseCountryPills">
       <span class="pill active" onclick="setBrowseCountry('',this)">All</span>
       ${COUNTRIES.map(c => `<span class="pill" onclick="setBrowseCountry('${c}',this)">${c}</span>`).join('')}
+    </div>
+    <div class="pill-row browse-api-filters">
+      <label>Channel
+        <select id="browseChannel" onchange="setBrowseApiFilter('channel',this.value)">
+          <option value="">All channels</option><option value="2">Channel 2</option>
+        </select>
+      </label>
+      <label>Year
+        <select id="browseYear" onchange="setBrowseApiFilter('year',this.value)">
+          <option value="">Any year</option>
+          ${Array.from({length: 12}, (_, i) => new Date().getFullYear() - i).map(y => `<option value="${y}">${y}</option>`).join('')}
+        </select>
+      </label>
+      <label>Order
+        <select id="browseSort" onchange="setBrowseApiFilter('sort',this.value)">
+          <option value="">Default</option><option value="Latest">Latest</option><option value="Popular">Popular</option><option value="Rating">Rating</option>
+        </select>
+      </label>
     </div>
   </div>
   <div class="section">
@@ -760,6 +817,13 @@ window.setBrowseCountry = function(country, el) {
   el.classList.add('active');
   fetchBrowse(true);
 };
+window.setBrowseApiFilter = function(key, value) {
+  if (key === 'channel') bchannel = value;
+  if (key === 'year') byear = value;
+  if (key === 'sort') bsort = value;
+  bp = 1;
+  fetchBrowse(true);
+};
 window.loadMoreBrowse = async function() {
   const btn = document.getElementById('browseMoreBtn');
   if (btn) { btn.textContent = 'Loading…'; btn.disabled = true; }
@@ -768,15 +832,20 @@ window.loadMoreBrowse = async function() {
   if (btn) { btn.textContent = 'Load More'; btn.disabled = false; }
 };
 async function fetchBrowse(reset) {
+  const requestId = ++browseFetchId;
   const grid = document.getElementById('browseGrid');
   const lmw = document.getElementById('browseMoreWrap');
   if (!grid) return;
   if (reset) grid.innerHTML = skeletonGrid();
-  const params = { page: bp, perPage: 24 };
+  const params = { page: bp, perPage: bchannel || byear || bsort ? 28 : 24 };
   if (btype) params.subjectType = btype;
   if (bgenre) params.genre = bgenre;
-  if (bcountry) params.countryName = bcountry;
+  if (bcountry) params.country = bcountry === 'South Korea' ? 'Korea' : bcountry;
+  if (bchannel) params.channelId = bchannel;
+  if (byear) params.year = byear;
+  if (bsort) params.sort = bsort;
   const data = await api('browse', params);
+  if (requestId !== browseFetchId) return;
   const items = data?.data?.subjectList || data?.data?.items || [];
   if (reset) {
     grid.innerHTML = items.length
@@ -944,6 +1013,7 @@ async function renderSearch(q) {
       <span class="pill active" onclick="setSearchType('',this)">All</span>
       <span class="pill" onclick="setSearchType('1',this)">Movies</span>
       <span class="pill" onclick="setSearchType('2',this)">TV Shows</span>
+      <span class="pill" onclick="setSearchType('showbox',this)">Showbox Catalog</span>
     </div>
   </div>
   <div class="section">
@@ -975,6 +1045,19 @@ async function fetchSearch(reset) {
   if (!grid) return;
   if (reset) { sp = 1; grid.innerHTML = skeletonGrid(); }
   const p = { keyword: sq, page: sp, perPage: 24 };
+  if (stype === 'showbox') {
+    const data = await api('showbox/search', { keyword: sq, type: 'movie', pagelimit: 5 });
+    const items = Array.isArray(data?.data) ? data.data : [];
+    if (reset) grid.innerHTML = items.length
+      ? `<div class="cards-grid fade-in">${items.map(makeShowboxCard).join('')}</div>`
+      : emptyHtml('🔍', 'No Showbox catalog results', data?.error || 'Try a different keyword');
+    else {
+      const cg = grid.querySelector('.cards-grid');
+      if (cg) cg.insertAdjacentHTML('beforeend', items.map(makeShowboxCard).join(''));
+    }
+    if (lmw) lmw.style.display = 'none';
+    return;
+  }
   if (stype) p.subjectType = stype;
   const data = await api('search', p);
   const items = data?.data?.subjectList || data?.data?.items || [];

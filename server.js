@@ -114,15 +114,63 @@ app.get('/proxy/recommend', wrap(async (req, res) => {
   res.json(await proxyFetch(`${API_BASE}/recommend?subjectId=${subjectId}&page=${page}&perPage=${perPage}`));
 }));
 
+function catalogPageParams(query) {
+  const page = Math.min(1000, Math.max(1, Number.parseInt(query.page, 10) || 1));
+  const perPage = Math.min(28, Math.max(1, Number.parseInt(query.perPage, 10) || 28));
+  return { page, perPage };
+}
+
+app.get('/proxy/tv-series', wrap(async (req, res) => {
+  const { page, perPage } = catalogPageParams(req.query);
+  const params = new URLSearchParams({ page: String(page), perPage: String(perPage) });
+  if (req.query.genre) params.set('genre', String(req.query.genre).slice(0, 80));
+  res.json(await proxyFetch(`${API_BASE}/tv-series?${params}`));
+}));
+
+app.get('/proxy/kdrama', wrap(async (req, res) => {
+  const { page, perPage } = catalogPageParams(req.query);
+  res.json(await proxyFetch(`${API_BASE}/kdrama?page=${page}&perPage=${perPage}`));
+}));
+
+// Search returns title metadata only; playback/source and download fields are never forwarded by the client.
+app.get('/proxy/showbox/search', wrap(async (req, res) => {
+  const keyword = String(req.query.keyword || '').trim().slice(0, 120);
+  if (!keyword) return res.status(400).json({ success: false, error: 'keyword is required' });
+  const type = req.query.type === 'tv' ? 'tv' : 'movie';
+  const pagelimit = Math.min(20, Math.max(1, Number.parseInt(req.query.pagelimit, 10) || 5));
+  const result = await proxyFetch(`${API_BASE}/showbox/search?keyword=${encodeURIComponent(keyword)}&type=${type}&pagelimit=${pagelimit}`);
+  if (Array.isArray(result?.data)) {
+    result.data = result.data.map(({ id, box_type, title, year, poster, description, cats, imdb_rating }) =>
+      ({ id, box_type, title, year, poster, description, cats, imdb_rating }));
+  }
+  res.json(result);
+}));
+
 app.get('/proxy/browse', wrap(async (req, res) => {
-  const { subjectType, genre, countryName } = req.query;
+  const { subjectType, genre } = req.query;
+  const country = String(req.query.country || req.query.countryName || '').slice(0, 80);
+  const channelId = /^\d{1,8}$/.test(String(req.query.channelId || '')) ? String(req.query.channelId) : '';
+  const year = /^\d{4}$/.test(String(req.query.year || '')) ? String(req.query.year) : '';
+  const sort = ['Latest', 'Popular', 'Rating'].includes(String(req.query.sort || '')) ? String(req.query.sort) : '';
   const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
   const perPage = Math.min(48, Math.max(1, Number.parseInt(req.query.perPage, 10) || 20));
   const matches = item => {
     if (genre && !String(item.genre || '').toLowerCase().split(',').some(value => value.trim() === String(genre).toLowerCase())) return false;
-    if (countryName && !String(item.countryName || '').toLowerCase().includes(String(countryName).toLowerCase())) return false;
+    if (country && !String(item.countryName || '').toLowerCase().includes(country.toLowerCase())) return false;
+    if (year && !String(item.releaseDate || '').startsWith(year)) return false;
     return true;
   };
+
+  if (channelId || year || sort) {
+    const params = new URLSearchParams({ page: String(page), perPage: String(Math.min(perPage, 28)) });
+    if (subjectType && subjectType !== '0') params.set('subjectType', String(subjectType));
+    if (channelId) params.set('channelId', channelId);
+    if (genre) params.set('genre', String(genre).slice(0, 80));
+    if (country) params.set('country', country);
+    if (year) params.set('year', year);
+    if (sort) params.set('sort', sort);
+    return res.json(await proxyFetch(`${API_BASE}/browse?${params}`));
+  }
 
   // MovieAPI's /browse rejects subjectType=1. Its /hot endpoint is the supported movie feed.
   if (subjectType === '1' || !subjectType || subjectType === '0') {
@@ -131,7 +179,7 @@ app.get('/proxy/browse', wrap(async (req, res) => {
       proxyFetch(`${API_BASE}/trending?page=0&perPage=36`),
       proxyFetch(`${API_BASE}/ranking`),
       !subjectType || subjectType === '0'
-        ? proxyFetch(`${API_BASE}/browse?subjectType=2&page=1&perPage=24${genre ? `&genre=${encodeURIComponent(genre)}` : ''}${countryName ? `&countryName=${encodeURIComponent(countryName)}` : ''}`)
+        ? proxyFetch(`${API_BASE}/browse?subjectType=2&page=1&perPage=24${channelId ? `&channelId=${channelId}` : ''}${genre ? `&genre=${encodeURIComponent(genre)}` : ''}${country ? `&country=${encodeURIComponent(country)}` : ''}${year ? `&year=${year}` : ''}${sort ? `&sort=${sort}` : ''}`)
         : Promise.resolve(null),
     ]);
     const movieItems = [
@@ -154,8 +202,11 @@ app.get('/proxy/browse', wrap(async (req, res) => {
   }
 
   let url = `${API_BASE}/browse?subjectType=${encodeURIComponent(subjectType)}&page=${page}&perPage=${perPage}`;
+  if (channelId) url += `&channelId=${channelId}`;
   if (genre) url += `&genre=${encodeURIComponent(genre)}`;
-  if (countryName) url += `&countryName=${encodeURIComponent(countryName)}`;
+  if (country) url += `&country=${encodeURIComponent(country)}`;
+  if (year) url += `&year=${year}`;
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
   res.json(await proxyFetch(url));
 }));
 
